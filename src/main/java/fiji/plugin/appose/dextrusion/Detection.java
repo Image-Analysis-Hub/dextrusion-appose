@@ -7,6 +7,7 @@ import static fiji.plugin.appose.ApposeUtils.useGlasbeyDarkLUT;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Window;
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +40,7 @@ import org.scijava.plugin.Plugin;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.io.FileInfo;
 import ij.measure.Calibration;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
@@ -61,8 +63,15 @@ import net.imglib2.type.numeric.RealType;
 public class Detection implements Command 
 {
 	
-	@Parameter( label = "Diameter", min="0" )
-	private int cell_diameter = 30; // cell diameter
+	@Parameter(  
+			label = "Choose model directory",
+		    description = "Directory that contains the model(s) to run",
+		    style = "directory"    
+	)
+	private File modelDirectory;
+	
+	@Parameter( label="cell_diameter", description="Typical cell diameter" )
+	private double cell_diameter;
 	
 	/*
 	 * This is the entry point for the plugin. This is what is called when the
@@ -150,8 +159,30 @@ public class Detection implements Command
 		 * 
 		 */
 		final Map< String, Object > inputs = new HashMap<>();
-		inputs.put( "image", NDArrays.asNDArray( img ) );
+		inputs.put( "movie", NDArrays.asNDArray( img ) );
 
+		FileInfo fileInfo = imp.getOriginalFileInfo();
+		if (fileInfo != null && fileInfo.fileName != null) {
+		    String fileName = fileInfo.fileName;
+		    String directory = fileInfo.directory;
+		    
+		    if (directory != null && fileName != null) {
+		        String fullPath = new File(directory, fileName).getAbsolutePath();
+		        System.out.println("Full path: " + fullPath);
+		        inputs.put( "movie_path", fullPath );
+		    } else if (fileName != null) {
+		        System.out.println("File name: " + fileName);
+		        // Note: This might just be the file name without full path
+		    }
+		} else {
+		    System.out.println("No file information available");
+		}
+		
+		// Put all parameters to pass to run dextrusion
+		inputs.put( "cell_diameter", cell_diameter );
+		inputs.put( "model", modelDirectory.getAbsolutePath() );
+		
+		
 		/*
 		 * Create or retrieve the environment.
 		 * 
@@ -223,15 +254,13 @@ public class Detection implements Command
 			 * copying of the data, as the NDArray and the ShmImg are both just
 			 * views on the same shared memory array.
 			 */
-			/**final NDArray maskArr = ( NDArray ) task.outputs.get( "labels" );
+			final NDArray maskArr = ( NDArray ) task.outputs.get( "probamap" );
 			final Img< T > output = new ShmImg<>( maskArr );
-			final ImagePlus labels = ImageJFunctions.wrap( output, "labels" );
-			labels.setDimensions( 1, labels.getNChannels(), labels.getNFrames() );
-			labels.getProcessor().resetMinAndMax();
-			useGlasbeyDarkLUT( labels );
-			transferCalibration( imp, labels );
-
-			labels.show();*/
+			final ImagePlus probamap = ImageJFunctions.wrap( output, "probamap" );
+			probamap.setDimensions( 1, 1, probamap.getNFrames() );
+			probamap.getProcessor().resetMinAndMax();
+			transferCalibration( imp, probamap );
+			probamap.show();
 		}
 		catch ( final Exception e )
 		{
