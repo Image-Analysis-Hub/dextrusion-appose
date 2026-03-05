@@ -33,6 +33,7 @@ import org.apposed.appose.Service;
 import org.apposed.appose.Service.Task;
 import org.apposed.appose.Service.TaskStatus;
 import org.scijava.Initializable;
+import org.scijava.ItemVisibility;
 import org.scijava.command.Command;
 import org.scijava.command.DynamicCommand;
 import org.scijava.module.DefaultMutableModuleItem;
@@ -82,8 +83,14 @@ public class Detection implements Command
 	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
 	private boolean get_probabilities = true;
 	
+	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
+	private String info_advanced = "";
+	
 	@Parameter( label="Show debug messages", description="Show full debug messages in the Console" )
 	private boolean show_debug = false;
+	
+	@Parameter( label="Computation size", description="Depending on computer capabilities, can compute more at one time" )
+	private int group_size = 150000;
 	
 	private List<String> color_list = Arrays.asList("magenta", "cyan", "orange", "green", "red", "yellow", "blue");
 	
@@ -193,7 +200,8 @@ public class Detection implements Command
 		inputs.put( "cell_diameter", cell_diameter );
 		inputs.put( "extrusion_duration", extrusion_duration );
 		inputs.put( "model", modelDirectory.getAbsolutePath() );
-		inputs.put( "get_probabilities", get_probabilities );		
+		inputs.put( "get_probabilities", get_probabilities );
+		inputs.put( "group_size", group_size );
 		
 		/*
 		 * Create or retrieve the environment.

@@ -56,15 +56,15 @@ else:
     from tifffile import imread
     input_movie = imread( movie_path )
     extrusion_duration = 4.5
+    group_size = 150000
 	
 shift_xy = 10
 shift_t = 2
-groupsize = 150000
 
 model_list = get_model_list( model )
 
 dexter.set_output_names( movie_path )
-dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=groupsize)
+dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=group_size)
 
 if get_probabilities:
     event_list = dexter.get_events_names()
