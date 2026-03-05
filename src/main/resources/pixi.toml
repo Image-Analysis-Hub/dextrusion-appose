@@ -32,8 +32,8 @@ tensorflow = "==2.10.1"
 tensorflow = "*"                 # latest CPU TF for Intel mac
 
 [target.osx-arm64.pypi-dependencies]
-tensorflow-macos = "*"           # latest TF for Apple Silicon
-tensorflow-metal = "*"           # Metal plugin
+tensorflow-macos = ">=2.13,<=2.15"
+tensorflow-metal = ">=0.7,<=1.1"
 
 # ---------------- Macos no metal - ONLY APPLE SILICON ----------------
 [feature.nometal]
