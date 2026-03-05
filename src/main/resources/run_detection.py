@@ -55,8 +55,8 @@ else:
     get_probabilities = True
     from tifffile import imread
     input_movie = imread( movie_path )
-
-extrusion_duration = 4.5
+    extrusion_duration = 4.5
+	
 shift_xy = 10
 shift_t = 2
 groupsize = 150000

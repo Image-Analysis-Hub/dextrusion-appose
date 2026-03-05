@@ -3,6 +3,7 @@ package fiji.plugin.appose.dextrusion;
 import static fiji.plugin.appose.ApposeUtils.rawWraps;
 import static fiji.plugin.appose.ApposeUtils.transferCalibration;
 import static fiji.plugin.appose.ApposeUtils.setChannelsLUT;
+import static fiji.plugin.appose.ApposeUtils.getScript;
 
 import java.awt.EventQueue;
 import java.awt.Font;
@@ -75,6 +76,10 @@ public class Detection implements Command
 	@Parameter( label="cell_diameter", description="Typical cell diameter"  )
 	private double cell_diameter = 25;
 	
+	@Parameter( label="extrusion_duration", description="Typical duration of an extrusion event (in frames)"  )
+	private double extrusion_duration = 4.5;
+	
+	
 	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
 	private boolean get_probabilities = true;
 	
@@ -97,8 +102,6 @@ public class Detection implements Command
 		final ImagePlus imp = WindowManager.getCurrentImage();
 		try
 		{
-			// Get the parameters based on the image properties
-				
 			// Runs the processing code.
 			process( imp );
 		}
@@ -106,7 +109,6 @@ public class Detection implements Command
 			IJ.error("An error occurred: " + e.getMessage());
 			e.printStackTrace();
 		}
-
 	}
 	
 
@@ -134,7 +136,7 @@ public class Detection implements Command
 		 * script is very simple and has no parameters. We give details on how
 		 * to pass input and receive outputs below.
 		 */
-		final String script = getScript();
+		final String script = getScript( this.getClass().getResource("/run_detection.py" ) );
 
 		/*
 		 * The following wraps an ImageJ ImagePlus into an ImgLib2 Img, and then
@@ -190,6 +192,7 @@ public class Detection implements Command
 		
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
+		inputs.put( "extrusion_duration", extrusion_duration );
 		inputs.put( "model", modelDirectory.getAbsolutePath() );
 		inputs.put( "get_probabilities", get_probabilities );		
 		
@@ -313,46 +316,6 @@ public class Detection implements Command
 		return env;
 	}
 
-	/*
-	 * The Python script.
-	 * 
-	 * This is the Python code that will be run by the service. It is specified
-	 * as a string here for simplicity, but it could be loaded from an existing
-	 * .py file. In this example, the script receives an input image as a shared
-	 * memory NDArray (the 'image' variable), rotates it by 90 degrees using
-	 * scikit-image, and then sends the result back to Fiji by creating a new
-	 * NDArray (the 'rotated' variable) and putting it in the task outputs.
-	 * 
-	 * The string is monolithic and has not parameters for simplicity, but you
-	 * can imagine more complex scripts that take multiple inputs, have
-	 * parameters, call functions defined in other .py files, etc. The only
-	 * requirement is that the script can be run as a standalone script, and
-	 * that it uses the appose library to receive inputs and send outputs.
-	 * 
-	 * To pass on-the-fly parameters, you can:
-	 * 
-	 * 1/ modify the string below before creating the task, by using replace,
-	 * string concatenation, string format, or any other method to inject the
-	 * parameters into the script string before it is run. This approach
-	 * requires you to write the script as a template with placeholders for the
-	 * parameters, and then fill in the placeholders with the actual parameters
-	 * when you create the task.
-	 * 
-	 * 2/or you can use the input map to pass parameters as well, by putting
-	 * them in the map with a specific key.
-	 */
-	private String getScript()
-	{
-		String script = "";
-		try {
-			final URL scriptFile = this.getClass().getResource("/run_detection.py");
-			script = IOUtils.toString(scriptFile, StandardCharsets.UTF_8);
-			
-		} catch (final IOException e) {
-			e.printStackTrace();
-		}
-		return script;
-	}
 	
 	// Helper functions to display progress while building the Appose environment.
 	// Temporary solution until Appose has a nicer built-in way to do this.
@@ -428,24 +391,5 @@ public class Detection implements Command
 		}
 	}
 
-	/*
-	 * A utility to pretty print things. Probably will go away in your code.
-	 */
-	private static String indent( final String script )
-	{
-		final String[] split = script.split( "\n" );
-		String out = "";
-		for ( final String string : split )
-			out += "    " + string + "\n";
-		return out;
-	}
-	
-	public static Integer parseChannelChoice(String str) {
-	    if (str == null || str.equalsIgnoreCase("N/A")) {
-	        return null;
-	    }
-	    return Integer.parseInt(str);
-	}
-	
 
 }

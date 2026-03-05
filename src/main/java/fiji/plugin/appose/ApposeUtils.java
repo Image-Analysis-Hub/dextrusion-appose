@@ -5,7 +5,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+
+import org.apache.commons.io.IOUtils;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -142,4 +146,23 @@ public class ApposeUtils
 		tc.pixelHeight = fc.pixelHeight;
 		tc.pixelDepth = fc.pixelDepth;
 	}
+	
+	/*
+	 * The Python script.
+	 * 
+	 * This is the Python code that will be run by the service. It is loaded from an existing
+	 * .py file, placed in the URL location */
+	public static String getScript( URL python_script )
+	{
+		String script = "";
+		try {
+			final URL scriptFile = python_script;
+			script = IOUtils.toString(scriptFile, StandardCharsets.UTF_8);
+			
+		} catch (final IOException e) {
+			e.printStackTrace();
+		}
+		return script;
+	}
+	
 }
