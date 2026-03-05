@@ -79,7 +79,6 @@ public class Detection implements Command
 	@Parameter( label="extrusion_duration", description="Typical duration of an extrusion event (in frames)"  )
 	private double extrusion_duration = 4.5;
 	
-	
 	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
 	private boolean get_probabilities = true;
 	
