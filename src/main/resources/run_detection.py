@@ -23,12 +23,20 @@ def to_5d(arr):
         arr = np.expand_dims(arr, axis=0)
     return arr
 
+def share_as_ndarray(img):
+    """Copies a NumPy array into a same-sized newly allocated block of shared memory"""
+    from appose import NDArray
+    shared = NDArray(str(img.dtype), img.shape)
+    shared.ndarray()[:] = img
+    return shared
+
 appose_mode = 'task' in globals()
 if appose_mode:
     listen(task.update)
 else:
     from appose.python_worker import Task
     task = Task()
+
 
 task.update(f"Starting python process")
 
