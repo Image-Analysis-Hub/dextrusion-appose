@@ -10,7 +10,7 @@ public class Main
 	{
 		final ImageJ ij = new ImageJ();
 		ij.launch();
-		IJ.openImage( "/home/gaelle/Proj/HackatonAppose/dextrusion-appose/004-crop-1.tif" ).show();
+		IJ.openImage( "/home/gaelle/Proj/HackatonAppose/004-crop-1.tif" ).show();
 		ij.command().run( Detection.class, true );
 	}
 }

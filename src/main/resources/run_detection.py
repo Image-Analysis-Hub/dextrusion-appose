@@ -51,7 +51,7 @@ else:
     ## Default parameters to test
     cell_diameter = 25
     model = "/home/gaelle/Proj/RL/dextrusion/DeXNets/notum_all/"
-    movie_path = "/home/gaelle/Proj/HackatonAppose/dextrusion-appose/004-crop-1.tif"
+    movie_path = "/home/gaelle/Proj/HackatonAppose/004-crop-1.tif"
     get_probabilities = True
     from tifffile import imread
     input_movie = imread( movie_path )
