@@ -51,7 +51,8 @@ else:
     ## Default parameters to test
     cell_diameter = 25
     model = "/home/gaelle/Proj/RL/dextrusion/DeXNets/notum_all/"
-    movie_path = "/home/gaelle/Proj/RL/dextrusion/data/004-crop.tif"
+    movie_path = "/home/gaelle/Proj/HackatonAppose/dextrusion-appose/004-crop-1.tif"
+    get_probabilities = True
     from tifffile import imread
     input_movie = imread( movie_path )
 
@@ -62,23 +63,22 @@ groupsize = 150000
 
 model_list = get_model_list( model )
 
-## Tmp solution to test -> TO change in DeXtrusion
-imdir = os.path.dirname(movie_path)
-output_name = os.path.basename(movie_path)
-output_name = os.path.splitext(output_name)[0]
-dexter.outpath = os.path.join(imdir, "results")
-if not os.path.exists(dexter.outpath):
-    os.makedirs(dexter.outpath)
-dexter.outname = os.path.join(dexter.outpath, output_name)
+dexter.set_output_names( movie_path )
 dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=groupsize)
 
+if get_probabilities:
+    event_list = dexter.get_events_names()
+    task.update( f"Getting probability maps for events: "+str(event_list) )
+    probamaps = []
+    for event in event_list:
+        probamap = dexter.get_probability_map( event )
+        probamap = dexter.to_init_shape(probamap)
+        probamaps.append( probamap )
+    probamaps = np.array( probamaps )
 
-extrusion_probamap = dexter.probamap[0]
-extrusion_probamap = dexter.to_init_shape(extrusion_probamap)
-
-if appose_mode:
-    # transform mask TYX -> TZCYX
-    proba_5d = np.rollaxis(to_5d(extrusion_probamap), -3, -4)
-    task.outputs["probamap"] = share_as_ndarray(proba_5d)
+    if appose_mode:
+        # transform mask CTYX -> TZCYX
+        proba_5d = np.moveaxis(to_5d(probamaps), 2, 0)
+        task.outputs["probamaps"] = share_as_ndarray(proba_5d)
 
 task.update(f"Finished DeXtrusion script")

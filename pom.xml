@@ -82,7 +82,7 @@
 
 	<properties>
 		<package-name>fiji.plugin.appose.dextrusion</package-name>
-		<main-class>fiji.plugin.appose.dexutrion.Detection</main-class>
+		<main-class>fiji.plugin.appose.dextrusion.Detection</main-class>
 		<license.licenseName>gpl_v2</license.licenseName>
 		<license.copyrightOwners>My Company, Inc.</license.copyrightOwners>
 

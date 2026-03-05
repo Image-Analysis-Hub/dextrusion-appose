@@ -2,7 +2,7 @@ package fiji.plugin.appose.dextrusion;
 
 import static fiji.plugin.appose.ApposeUtils.rawWraps;
 import static fiji.plugin.appose.ApposeUtils.transferCalibration;
-import static fiji.plugin.appose.ApposeUtils.useGlasbeyDarkLUT;
+import static fiji.plugin.appose.ApposeUtils.setChannelsLUT;
 
 import java.awt.EventQueue;
 import java.awt.Font;
@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.JDialog;
 import javax.swing.JProgressBar;
@@ -70,8 +72,16 @@ public class Detection implements Command
 	)
 	private File modelDirectory;
 	
-	@Parameter( label="cell_diameter", description="Typical cell diameter" )
-	private double cell_diameter;
+	@Parameter( label="cell_diameter", description="Typical cell diameter"  )
+	private double cell_diameter = 25;
+	
+	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
+	private boolean get_probabilities = true;
+	
+	@Parameter( label="Show debug messages", description="Show full debug messages in the Console" )
+	private boolean show_debug = false;
+	
+	private List<String> color_list = Arrays.asList("magenta", "cyan", "orange", "green", "red", "yellow", "blue");
 	
 	/*
 	 * This is the entry point for the plugin. This is what is called when the
@@ -181,17 +191,18 @@ public class Detection implements Command
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
 		inputs.put( "model", modelDirectory.getAbsolutePath() );
-		
+		inputs.put( "get_probabilities", get_probabilities );		
 		
 		/*
 		 * Create or retrieve the environment.
 		 * 
 		 * The first time this code is run, Appose will create the pixi
-		 * environment as specified by the cellposeEnv string, download and
+		 * environment as specified by the dextrusionEnv string, download and
 		 * install the dependencies. This can take a few minutes, but it is only
 		 * done once. The next time the code is run, Appose will just reuse the
 		 * existing environment, so it will start much faster.
 		 */
+		IJ.log( "Downloading/Installing the environement if necessary..." );
 		final Environment env = Appose // the builder
 				.pixi() // we chose pixi as the environment manager
 				.content( dextrusionEnv ) // specify the environment with the string defined above
@@ -205,8 +216,11 @@ public class Detection implements Command
 		 * Using this environment, we create a service that will run the Python
 		 * script.
 		 */
-		try ( Service python = env.python() )
+		try ( Service python = env.python().init("import numpy") )
 		{
+
+			python.debug( msg -> show_messages( msg ) );
+			
 			/*
 			 * With this service, we can now create a task that will run the
 			 * Python script with the specified inputs. This command takes the
@@ -218,7 +232,7 @@ public class Detection implements Command
 			final Task task = python.task( script, inputs );
 
 			// Start the script, and return to Java immediately.
-			System.out.println( "Starting Cellpose-Appose task..." );
+			IJ.log( "Starting DeXtrusion-Appose task..." );
 			final long start = System.currentTimeMillis();
 			// To catch update message from the python script
 			task.listen( e->{
@@ -254,13 +268,16 @@ public class Detection implements Command
 			 * copying of the data, as the NDArray and the ShmImg are both just
 			 * views on the same shared memory array.
 			 */
-			final NDArray maskArr = ( NDArray ) task.outputs.get( "probamap" );
-			final Img< T > output = new ShmImg<>( maskArr );
-			final ImagePlus probamap = ImageJFunctions.wrap( output, "probamap" );
-			probamap.setDimensions( 1, 1, probamap.getNFrames() );
-			probamap.getProcessor().resetMinAndMax();
-			transferCalibration( imp, probamap );
-			probamap.show();
+			if ( get_probabilities )
+			{
+				final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );
+				final Img< T > output = new ShmImg<>( maskArr );
+				final ImagePlus probamap = ImageJFunctions.wrap( output, "probability_maps" );
+				setChannelsLUT( probamap, color_list );
+				probamap.setDisplayMode( IJ.COMPOSITE );
+				transferCalibration( imp, probamap );
+				probamap.show();
+			}
 		}
 		catch ( final Exception e )
 		{
@@ -385,6 +402,30 @@ public class Detection implements Command
 				progressDialog.dispose();
 			progressDialog = null;
 		} );
+	}
+	
+	private static final String INVALID_PATTERN = ".*<INVALID>.*";
+    private static final Pattern pattern = Pattern.compile(".*<INVALID>\\s*(.*)");
+    /**
+	 * Show messages captured by the debug service, sorting them depending on show_debug option
+	 * @param msg
+	 */
+	private void show_messages( String msg )
+	{
+		if ( show_debug )
+		{
+			System.out.println("[DBG] " +msg );
+		}  
+		else 
+		{
+			if (msg.matches(INVALID_PATTERN)) 
+			{
+				Matcher matcher = pattern.matcher(msg);
+				if (matcher.matches()) {
+					IJ.log( matcher.group(1) );
+				}
+			}
+		}
 	}
 
 	/*

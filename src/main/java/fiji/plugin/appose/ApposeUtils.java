@@ -1,9 +1,11 @@
 package fiji.plugin.appose;
 
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.List;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -87,6 +89,34 @@ public class ApposeUtils
 	public static final void useLUT( final ImagePlus imp, final LUT lut )
 	{
 		imp.setLut( lut );
+		imp.updateAndDraw();
+	}
+	
+	/**
+	 * Set all the channels of imp with LUT from colors
+	 * @param imp
+	 * @param colors
+	 */
+	public static final void setChannelsLUT( ImagePlus imp, List<String> colors )
+	{
+		for (int i=1; i <= imp.getNChannels(); i++ )
+		{
+			imp.setC( i );
+			Color col = new Color(i+1);
+			setLUTFromColor( imp, col );
+		}
+	}
+	
+	/** 
+	 * Set a LUT from a given color
+	 * @param imp
+	 * @param color
+	 */
+	public static void setLUTFromColor( ImagePlus imp, Color color )
+	{
+		LUT lut = LUT.createLutFromColor( color );
+		imp.setLut( lut );
+		imp.getProcessor().resetMinAndMax();
 		imp.updateAndDraw();
 	}
 
