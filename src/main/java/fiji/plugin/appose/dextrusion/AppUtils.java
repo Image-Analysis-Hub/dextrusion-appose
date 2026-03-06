@@ -1,6 +1,8 @@
 package fiji.plugin.appose.dextrusion;
 
 import java.awt.Color;
+import java.awt.image.ColorModel;
+import java.awt.image.IndexColorModel;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,6 +16,8 @@ import org.apache.commons.io.IOUtils;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.Calibration;
+import ij.process.ColorProcessor;
+import ij.process.ImageProcessor;
 import ij.process.LUT;
 import net.imagej.ImgPlus;
 import net.imglib2.img.ImagePlusAdapter;
@@ -97,6 +101,54 @@ public class AppUtils
 	}
 	
 	/**
+     * Create LUT for a named color
+     */
+    public static LUT createColorLUT(String colorName) {
+        Color color = getColorByName(colorName);
+        if (color == null) {
+            return null;
+        }
+        
+        // Create arrays for RGB components
+        int size = 256; // Standard LUT size
+        byte[] red = new byte[size];
+        byte[] green = new byte[size];
+        byte[] blue = new byte[size];
+        
+        // Fill arrays with the color gradient
+        for (int i = 0; i < size; i++) {
+            // Linear gradient from black to full color
+            red[i] = (byte) ((color.getRed() * i) / 255);
+            green[i] = (byte) ((color.getGreen() * i) / 255);
+            blue[i] = (byte) ((color.getBlue() * i) / 255);
+        }
+        
+        // Create LUT
+        return new LUT(red, green, blue);
+    }
+	 
+    /**
+     * Get Color object from color name
+     */
+    public static Color getColorByName(String colorName) {
+        if (colorName == null) return null;
+        
+        switch (colorName.toLowerCase()) {
+            case "red": return Color.RED;
+            case "green": return Color.GREEN;
+            case "blue": return Color.BLUE;
+            case "yellow": return Color.YELLOW;
+            case "magenta": return Color.MAGENTA;
+            case "cyan": return Color.CYAN;
+            case "orange": return Color.ORANGE;
+            case "pink": return Color.PINK;
+            case "white": return Color.WHITE;
+            case "black": return Color.BLACK;
+            default: return Color.BLACK;
+        }
+    }
+    
+    /**
 	 * Set all the channels of imp with LUT from colors
 	 * @param imp
 	 * @param colors
@@ -105,9 +157,13 @@ public class AppUtils
 	{
 		for (int i=1; i <= imp.getNChannels(); i++ )
 		{
-			imp.setC( i );
-			Color col = new Color(i+1);
-			setLUTFromColor( imp, col );
+			imp.setPosition( i, 1, 1 );
+			ImageProcessor proc = imp.getChannelProcessor();	
+			LUT lut = createColorLUT(colors.get(i-1));
+			proc.setLut( lut );
+			imp.updateAndDraw();	
+			//imp.setLut( lut );
+			
 		}
 	}
 	

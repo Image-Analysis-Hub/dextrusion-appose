@@ -13,6 +13,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.image.IndexColorModel;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -49,6 +50,7 @@ import org.scijava.plugin.Plugin;
 import org.scijava.task.TaskService;
 import org.scijava.ui.UIService;
 
+import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
@@ -56,6 +58,7 @@ import ij.gui.ImageWindow;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.io.FileInfo;
+import ij.plugin.CompositeConverter;
 import ij.plugin.frame.RoiManager;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
@@ -264,8 +267,8 @@ public class Detection implements Command
 			} );
 			task.listen( e -> {
 				if (e.message != null) {this.fijiTask.setStatusMessage(e.message);}
-				if (e.current >= 0) {this.fijiTask.setProgressValue(e.current);}
-				if (e.maximum >= 0) {this.fijiTask.setProgressMaximum(e.maximum);}
+				if (e.current > 0) {this.fijiTask.setProgressValue(e.current);}
+				if (e.maximum > 0) {this.fijiTask.setProgressMaximum(e.maximum);}
 			} );
 			task.start();
 
@@ -306,9 +309,12 @@ public class Detection implements Command
 			{
 				final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );
 				final Img< T > output = new ShmImg<>( maskArr );
-				final ImagePlus probamap = ImageJFunctions.wrap( output, "probability_maps" );
-				//setChannelsLUT( probamap, color_list );
-				probamap.setDisplayMode( IJ.COMPOSITE );
+				final ImagePlus tmp = ImageJFunctions.wrap( output, "probability_maps" );
+				CompositeImage probamap = new CompositeImage( tmp );
+		        // Set display mode
+		        probamap.setDisplayMode( IJ.COMPOSITE );
+		        setChannelsLUT( probamap, color_list );
+				
 				transferCalibration( imp, probamap );
 				probamap.show();
 				
@@ -400,7 +406,7 @@ public class Detection implements Command
 			for ( Map<String, Object> roi : map_rois ) 
 			{
 	            try {
-	            		System.out.println(roi.get( "position_yx" ) );
+	            		//System.out.println(roi.get( "position_yx" ) );
 	            		List<Integer> pos = (List<Integer>) roi.get(  "position_yx" );
 	            		PointRoi proi = new PointRoi(pos.get( 1 ), pos.get( 0 ));
 	            		int roi_frame = (int) roi.get( "position_frame" );
@@ -422,10 +428,6 @@ public class Detection implements Command
 			
 			rm.setVisible( true );
 			
-			
-	        
-			//Roi roi = (Roi) rois.get( 0 );
-			//System.out.println(roi);
 			}
 		catch ( final Exception e )
 		{
@@ -521,23 +523,27 @@ public class Detection implements Command
 	 */
 	private void show_messages( String msg )
 	{
+		boolean is_progress = msg.matches(PROGRESS_PATTERN);
 		if ( show_debug )
 		{
 			System.out.println("[DBG] " +msg );
 		}  
 		else 
 		{
-			if (msg.matches(INVALID_PATTERN)) 
+			if (!is_progress)
 			{
-				Matcher matcher = pattern.matcher(msg);
-				if (matcher.matches()) {
-					IJ.log( matcher.group(1) );
+				if (msg.matches(INVALID_PATTERN)) 
+				{
+					Matcher matcher = pattern.matcher(msg);
+					if (matcher.matches()) {
+						IJ.log( matcher.group(1) );
+					}
 				}
 			}
 		}
 		
 		// Progress bar
-		if (msg.matches(PROGRESS_PATTERN)) 
+		if (is_progress) 
 		{
 			int[] progresses = parseNumbersSpecific( msg );
 			if ( progress_total == 0 )
