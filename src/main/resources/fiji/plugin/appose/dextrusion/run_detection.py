@@ -37,8 +37,11 @@ else:
     from appose.python_worker import Task
     task = Task()
 
-
-task.update(f"Starting python process")
+task.update(
+    current = 1,
+    maximum= 4,
+    message=f"Init DeXtrusion process"
+)
 
 # default parameters
 talkative = True  ## print info messages
@@ -68,12 +71,24 @@ disxy = 10
 distime = 4
 
 model_list = get_model_list( model )
-
 dexter.set_output_names( movie_path )
+
+task.update(
+    current = 2,
+    maximum= 4,
+    message=f"DeXtrusion event detection (takes time)"
+)
+
 dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=group_size)
+
+task.update(
+    current = 3,
+    maximum= 4,
+    message=f"Getting event positions from probability map"
+)
+
 ext_index = dexter.get_event_index( "cell_death" )
 rois = dexter.get_event_rois(icat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_death")
-print(rois)
 
 if appose_mode:
     task.outputs["rois"] = rois
@@ -93,4 +108,9 @@ if get_probabilities:
         proba_5d = np.moveaxis(to_5d(probamaps), 2, 0)
         task.outputs["probamaps"] = share_as_ndarray(proba_5d)
 
-task.update(f"Finished DeXtrusion script")
+task.update(
+    current = 4,
+    maximum= 4,
+    message=f"Finished DeXtrusion task"
+)
+

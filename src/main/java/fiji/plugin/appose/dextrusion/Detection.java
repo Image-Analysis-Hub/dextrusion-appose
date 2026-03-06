@@ -5,9 +5,14 @@ import static fiji.plugin.appose.dextrusion.AppUtils.transferCalibration;
 import static fiji.plugin.appose.dextrusion.AppUtils.setChannelsLUT;
 import static fiji.plugin.appose.dextrusion.AppUtils.getScript;
 
+import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Window;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -41,13 +46,17 @@ import org.scijava.module.ModuleItem;
 import org.scijava.module.MutableModuleItem;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import org.scijava.task.TaskService;
 import org.scijava.ui.UIService;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.ImageWindow;
+import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.io.FileInfo;
+import ij.plugin.frame.RoiManager;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
 import net.imglib2.appose.ShmImg;
@@ -65,6 +74,8 @@ import net.imglib2.type.numeric.RealType;
 @Plugin(type = Command.class, menuPath = "Plugins>DeXtrusion-Appose>Detect events")
 public class Detection implements Command
 {
+	@Parameter
+	private TaskService taskService;
 	
 	@Parameter(  
 			label = "Choose model directory",
@@ -104,7 +115,12 @@ public class Detection implements Command
 	private int group_size = 150000;
 	
 	private List<String> color_list = Arrays.asList("magenta", "cyan", "orange", "green", "red", "yellow", "blue");
-	
+
+	// Fiji task
+	private org.scijava.task.Task fijiTask;
+	// dextrusion progress
+	private int progress_total = 0;
+	private int shift = 0;
 	
 	/*
 	 * This is the entry point for the plugin. This is what is called when the
@@ -116,8 +132,14 @@ public class Detection implements Command
 	@Override
 	public void run()
 	{
+		// start task
+		fijiTask = taskService.createTask("dextrusion-appose");
+		fijiTask.setStatusMessage( "Launching DeXtrusion appose task." );
+		fijiTask.start();
+				
 		// Grab the current image.
 		final ImagePlus imp = WindowManager.getCurrentImage();
+		
 		try
 		{
 			// Runs the processing code.
@@ -147,22 +169,7 @@ public class Detection implements Command
 		/*
 		 * The Python script that we want to run. It is loaded from the run_detection.py file in the resource folder. 
 		 */
-		final String script = getScript( this.getClass().getResource("/run_detection.py" ) );
-
-		/*
-		 * The following wraps an ImageJ ImagePlus into an ImgLib2 Img, and then
-		 * into an Appose NDArray, which is a shared memory array that can be
-		 * passed to Python without copying the data.
-		 * 
-		 * As an ImagePlus is not mapped on a shared memory array, the ImgLib2
-		 * image wrapping the ImagePlus is actually copied to a shared memory
-		 * image (the ShmImg) when we wrap it into an NDArray. This is because
-		 * the NDArray needs to be backed by a shared memory array in order to
-		 * be passed to Python without copying the data. We could have avoided
-		 * this copy by directly loading the image into a ShmImg in the first
-		 * place, but for simplicity we start with an ImagePlus and show how to
-		 * wrap it into a shared memory array.
-		 */
+		final String script = getScript( this.getClass().getResource("run_detection.py" ) );
 
 		// Wrap the ImagePlus into a ImgLib2 image.
 		final ImgPlus< T > img = rawWraps( imp );
@@ -223,8 +230,6 @@ public class Detection implements Command
 		
 		final Environment env = Appose // the builder
 				.pixi(this.getClass().getResource("pixi.toml")) // we chose pixi as the environment manager
-				
-				//.content( dextrusionEnv ) // specify the environment with the string defined above
 				.subscribeProgress( this::showProgress ) // report progress visually
 				.subscribeOutput( this::showProgress ) // report output visually
 				.subscribeError( IJ::log ) // log problems
@@ -257,6 +262,11 @@ public class Detection implements Command
 			task.listen( e->{
 				System.out.println("\tInfo: "+e.message);
 			} );
+			task.listen( e -> {
+				if (e.message != null) {this.fijiTask.setStatusMessage(e.message);}
+				if (e.current >= 0) {this.fijiTask.setProgressValue(e.current);}
+				if (e.maximum >= 0) {this.fijiTask.setProgressMaximum(e.maximum);}
+			} );
 			task.start();
 
 			/*
@@ -265,7 +275,12 @@ public class Detection implements Command
 			 * run in parallel without blocking the Java thread while it is
 			 * running.
 			 */
+			IJ.showStatus( "Event detection (1/2)" );
 			task.waitFor();
+			IJ.showStatus( "Detection finished" );
+			
+			
+			this.fijiTask.finish();
 
 			// Verify that it worked.
 			if ( task.status != TaskStatus.COMPLETE )
@@ -292,15 +307,126 @@ public class Detection implements Command
 				final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );
 				final Img< T > output = new ShmImg<>( maskArr );
 				final ImagePlus probamap = ImageJFunctions.wrap( output, "probability_maps" );
-				setChannelsLUT( probamap, color_list );
+				//setChannelsLUT( probamap, color_list );
 				probamap.setDisplayMode( IJ.COMPOSITE );
 				transferCalibration( imp, probamap );
 				probamap.show();
+				
+				/**
+				 * Mouse/Keyboard interactions
+				 * ImageWindow w = probamap.getWindow();
+				 
+				if (w!=null)
+				{
+					KeyListener kl =  new KeyListener()
+					{
+						
+						@Override
+						public void keyTyped( KeyEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+							System.out.println(""+e.getKeyChar());
+						}
+						
+						@Override
+						public void keyReleased( KeyEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+						
+						@Override
+						public void keyPressed( KeyEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+					};
+					w.addKeyListener( kl );
+					w.getCanvas().addKeyListener( kl );
+					w.getCanvas().addMouseListener( new MouseListener()
+					{
+						
+						@Override
+						public void mouseReleased( MouseEvent e )
+						{
+							// TODO Auto-generated method stub
+							
+							System.out.println(""+ e );
+						}
+						
+						@Override
+						public void mousePressed( MouseEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+						
+						@Override
+						public void mouseExited( MouseEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+						
+						@Override
+						public void mouseEntered( MouseEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+						
+						@Override
+						public void mouseClicked( MouseEvent e )
+						{
+							// TODO Auto-generated method stub
+							System.out.println(""+ e );
+						}
+					}) ;
+				} else {
+					System.out.println("NO window");
+				} */
+				
+			} 
+			
+			RoiManager rm = RoiManager.getInstance();
+			if (rm == null )
+			{
+				rm = new RoiManager();
 			}
-			List<Roi> rois = (List<Roi>) task.outputs.get( "rois" );
-			Roi roi = (Roi) rois.get( 0 );
-			System.out.println(roi);
-		}
+			rm.reset();
+			List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );
+			for ( Map<String, Object> roi : map_rois ) 
+			{
+	            try {
+	            		System.out.println(roi.get( "position_yx" ) );
+	            		List<Integer> pos = (List<Integer>) roi.get(  "position_yx" );
+	            		PointRoi proi = new PointRoi(pos.get( 1 ), pos.get( 0 ));
+	            		int roi_frame = (int) roi.get( "position_frame" );
+	            		proi.setPosition( 1, 1, roi_frame );
+	            		//proi.setFillColor( new Color(2) );
+	            		//proi.setStrokeWidth( 5 );
+	            		proi.setSize( 4 );
+	            		String roi_name = (String) roi.get( "name" );
+	            		proi.setName( ""+roi_name );
+	            		proi.setImage( imp );
+	            		imp.setRoi( proi );
+	            		rm.addRoi( proi ); // Show on original image
+	            		
+	            } catch (Exception e) {
+	                System.err.println("Error creating ROI: " + e.getMessage());
+	                e.printStackTrace();
+	            }
+	        }
+			
+			rm.setVisible( true );
+			
+			
+	        
+			//Roi roi = (Roi) rois.get( 0 );
+			//System.out.println(roi);
+			}
 		catch ( final Exception e )
 		{
 			IJ.handleException( e );
@@ -386,6 +512,7 @@ public class Detection implements Command
 		} );
 	}
 	
+	private static final String PROGRESS_PATTERN = ".*\\d+/\\d+.*\\[.*\\].*";
 	private static final String INVALID_PATTERN = ".*<INVALID>.*";
     private static final Pattern pattern = Pattern.compile(".*<INVALID>\\s*(.*)");
     /**
@@ -408,6 +535,38 @@ public class Detection implements Command
 				}
 			}
 		}
+		
+		// Progress bar
+		if (msg.matches(PROGRESS_PATTERN)) 
+		{
+			int[] progresses = parseNumbersSpecific( msg );
+			if ( progress_total == 0 )
+			{
+				progress_total = progresses[1] * 2; // should run two networks most of the time @TODO: check how many networks should be run
+			}
+			IJ.showProgress( shift+progresses[0], progress_total );
+			if ( progresses[0] == progress_total /2 )
+			{
+				IJ.showStatus( "Event detection (2/2)" );
+				shift = progress_total/2;
+			}
+		}
+	}
+	
+	/** Parse the progress report to show it */
+	public static int[] parseNumbersSpecific(String input) {
+	    // More specific pattern matching the exact format
+	    Pattern pattern = Pattern.compile("<[^>]+>\\s+(\\d+)/(\\d+)\\s+\\[");
+	    Matcher matcher = pattern.matcher(input);
+	    
+	    if (matcher.find()) {
+	        return new int[]{
+	            Integer.parseInt(matcher.group(1)),
+	            Integer.parseInt(matcher.group(2))
+	        };
+	    }
+	    
+	    return null;
 	}
 
 
