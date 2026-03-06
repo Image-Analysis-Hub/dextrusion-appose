@@ -46,6 +46,7 @@ import org.scijava.ui.UIService;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
+import ij.gui.Roi;
 import ij.io.FileInfo;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
@@ -219,9 +220,11 @@ public class Detection implements Command
 		 * existing environment, so it will start much faster.
 		 */
 		IJ.log( "Downloading/Installing the environement if necessary..." );
+		
 		final Environment env = Appose // the builder
-				.pixi() // we chose pixi as the environment manager
-				.content( dextrusionEnv ) // specify the environment with the string defined above
+				.pixi(this.getClass().getResource("pixi.toml")) // we chose pixi as the environment manager
+				
+				//.content( dextrusionEnv ) // specify the environment with the string defined above
 				.subscribeProgress( this::showProgress ) // report progress visually
 				.subscribeOutput( this::showProgress ) // report output visually
 				.subscribeError( IJ::log ) // log problems
@@ -294,6 +297,9 @@ public class Detection implements Command
 				transferCalibration( imp, probamap );
 				probamap.show();
 			}
+			List<Roi> rois = (List<Roi>) task.outputs.get( "rois" );
+			Roi roi = (Roi) rois.get( 0 );
+			System.out.println(roi);
 		}
 		catch ( final Exception e )
 		{
@@ -320,7 +326,7 @@ public class Detection implements Command
 	{
 		String env = "";
 		try {
-			final URL pixiFile = this.getClass().getResource("/pixi.toml");
+			final URL pixiFile = this.getClass().getResource("pixi.toml");
 			env = IOUtils.toString(pixiFile, StandardCharsets.UTF_8);
 			
 		} catch (final IOException e) {
