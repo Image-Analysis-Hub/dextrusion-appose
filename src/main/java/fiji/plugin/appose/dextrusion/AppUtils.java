@@ -1,4 +1,4 @@
-package fiji.plugin.appose;
+package fiji.plugin.appose.dextrusion;
 
 import java.awt.Color;
 import java.io.BufferedReader;
@@ -19,7 +19,7 @@ import net.imagej.ImgPlus;
 import net.imglib2.img.ImagePlusAdapter;
 import net.imglib2.type.numeric.real.DoubleType;
 
-public class ApposeUtils
+public class AppUtils
 {
 
 	/**
@@ -36,7 +36,7 @@ public class ApposeUtils
 
 	private static LUT loadLutFromResource( final String resourcePath )
 	{
-		try (InputStream is = ApposeUtils.class.getResourceAsStream( resourcePath );
+		try (InputStream is = AppUtils.class.getResourceAsStream( resourcePath );
 				BufferedReader reader = new BufferedReader( new InputStreamReader( is ) ))
 		{
 

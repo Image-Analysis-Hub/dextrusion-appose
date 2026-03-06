@@ -1,9 +1,9 @@
 package fiji.plugin.appose.dextrusion;
 
-import static fiji.plugin.appose.ApposeUtils.rawWraps;
-import static fiji.plugin.appose.ApposeUtils.transferCalibration;
-import static fiji.plugin.appose.ApposeUtils.setChannelsLUT;
-import static fiji.plugin.appose.ApposeUtils.getScript;
+import static fiji.plugin.appose.dextrusion.AppUtils.rawWraps;
+import static fiji.plugin.appose.dextrusion.AppUtils.transferCalibration;
+import static fiji.plugin.appose.dextrusion.AppUtils.setChannelsLUT;
+import static fiji.plugin.appose.dextrusion.AppUtils.getScript;
 
 import java.awt.EventQueue;
 import java.awt.Font;
@@ -12,7 +12,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -36,16 +35,18 @@ import org.scijava.Initializable;
 import org.scijava.ItemVisibility;
 import org.scijava.command.Command;
 import org.scijava.command.DynamicCommand;
+import org.scijava.event.EventService;
 import org.scijava.module.DefaultMutableModuleItem;
+import org.scijava.module.ModuleItem;
 import org.scijava.module.MutableModuleItem;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import org.scijava.ui.UIService;
 
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
 import ij.io.FileInfo;
-import ij.measure.Calibration;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
 import net.imglib2.appose.ShmImg;
@@ -55,16 +56,13 @@ import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 
 /*
- * This class implements an example of a classical Fiji plugin (not ImageJ2 plugin), 
+ * This class implements an example of a classical Fiji plugin, 
  * that calls native Python code with Appose.
  * 
- * We use a simple examples of rotating an input image by 90 degrees, using the scikit-image 
- * library in Python, and returning the result back to Fiji. Everything is contained in a 
- * single class, but you can imagine restructuring the code and the Python script as you see fit.
  */
 
 @Plugin(type = Command.class, menuPath = "Plugins>DeXtrusion-Appose>Detect events")
-public class Detection implements Command 
+public class Detection implements Command
 {
 	
 	@Parameter(  
@@ -84,7 +82,20 @@ public class Detection implements Command
 	private boolean get_probabilities = true;
 	
 	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
-	private String info_advanced = "";
+	private String roi_parameters = "--------- ROI parameters";
+	
+	//@Parameter( label="Get ROIs", description="Given event point-like positions as ROIs", callback="show_roi_parameters"  )
+	//private boolean get_rois = true;
+	
+	@Parameter( label="Event threshold", description="Probability threshold to detect an event", style="column:0" )
+	private int event_threshold = 180;
+	
+	@Parameter( label="Event volume", description="Probability volutme to detect an event (in pixels)", style="column:1" )
+	private int event_volume = 800;
+
+	
+	@Parameter( label="-------", description="Information",  visibility=ItemVisibility.MESSAGE )
+	private String info_advanced = "-------- Advanced parameter";
 	
 	@Parameter( label="Show debug messages", description="Show full debug messages in the Console" )
 	private boolean show_debug = false;
@@ -93,6 +104,7 @@ public class Detection implements Command
 	private int group_size = 150000;
 	
 	private List<String> color_list = Arrays.asList("magenta", "cyan", "orange", "green", "red", "yellow", "blue");
+	
 	
 	/*
 	 * This is the entry point for the plugin. This is what is called when the
@@ -127,20 +139,13 @@ public class Detection implements Command
 		System.out.println( "Starting process..." );
 
 		/*
-		 * For this example we use pixi to create a Python environment with the
-		 * necessary dependencies. It is specified with a string that contains a
-		 * YAML specification of the environment, similar to what you would put
-		 * in an environment.yaml file. You could load it from an existing file,
-		 * be here for simplicity it is directly returned as a string. See the
-		 * corresponding method.
+		 * We use pixi to create a Python environment with the
+		 * necessary dependencies. It is specified within the file pixi.toml in the resources folder
 		 */
 		final String dextrusionEnv = pixiEnv();
 
 		/*
-		 * The Python script that we want to run. It is specified as a string,
-		 * but it could be loaded from an existing .py file. In our case the
-		 * script is very simple and has no parameters. We give details on how
-		 * to pass input and receive outputs below.
+		 * The Python script that we want to run. It is loaded from the run_detection.py file in the resource folder. 
 		 */
 		final String script = getScript( this.getClass().getResource("/run_detection.py" ) );
 
@@ -202,6 +207,8 @@ public class Detection implements Command
 		inputs.put( "model", modelDirectory.getAbsolutePath() );
 		inputs.put( "get_probabilities", get_probabilities );
 		inputs.put( "group_size", group_size );
+		inputs.put( "event_threshold", event_threshold );
+		inputs.put( "event_volume", event_volume );
 		
 		/*
 		 * Create or retrieve the environment.

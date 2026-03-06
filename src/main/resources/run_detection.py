@@ -53,18 +53,26 @@ else:
     model = "/home/gaelle/Proj/RL/dextrusion/DeXNets/notum_all/"
     movie_path = "/home/gaelle/Proj/HackatonAppose/004-crop-1.tif"
     get_probabilities = True
+
     from tifffile import imread
     input_movie = imread( movie_path )
     extrusion_duration = 4.5
     group_size = 150000
+    event_threshold = 180
+    event_volume = 800
 	
 shift_xy = 10
 shift_t = 2
+## Merge "peaks" if distance < disxy (spatial) & dist (time)
+disxy = 10
+distime = 4
 
 model_list = get_model_list( model )
 
 dexter.set_output_names( movie_path )
 dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=group_size)
+ext_index = dexter.get_event_index( "cell_death" )
+dexter.get_rois(cat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, disxy=disxy, dist=distime)
 
 if get_probabilities:
     event_list = dexter.get_events_names()
