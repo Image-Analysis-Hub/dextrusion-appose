@@ -12,8 +12,8 @@ numpy = "<2"
 pip = "*"
 
 [pypi-dependencies]
-dextrusion = "==0.0.15"
-appose = ">=0.10.1, <0.11"
+dextrusion = "==0.0.16"
+appose = ">=0.10.1, <=0.11"
 
 [target.osx-64.dependencies]
 python = "==3.10"

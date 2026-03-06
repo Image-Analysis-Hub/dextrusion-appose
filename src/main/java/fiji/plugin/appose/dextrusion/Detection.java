@@ -93,7 +93,6 @@ public class Detection implements Command
 	@Parameter( label="Event volume", description="Probability volutme to detect an event (in pixels)", style="column:1" )
 	private int event_volume = 800;
 
-	
 	@Parameter( label="-------", description="Information",  visibility=ItemVisibility.MESSAGE )
 	private String info_advanced = "-------- Advanced parameter";
 	

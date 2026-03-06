@@ -72,7 +72,8 @@ model_list = get_model_list( model )
 dexter.set_output_names( movie_path )
 dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=group_size)
 ext_index = dexter.get_event_index( "cell_death" )
-dexter.get_rois(cat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, disxy=disxy, dist=distime)
+rois = dexter.get_event_rois(icat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime)
+print(rois)
 
 if get_probabilities:
     event_list = dexter.get_events_names()
