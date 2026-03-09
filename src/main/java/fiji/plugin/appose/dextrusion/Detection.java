@@ -288,7 +288,11 @@ public class Detection implements Command
 				System.out.println("\tInfo: "+e.message);
 			} );
 			task.listen( e -> {
-				if (e.message != null) {this.fijiTask.setStatusMessage(e.message);}
+				if (e.message != null) 
+				{ 
+					this.fijiTask.setStatusMessage(e.message);
+					IJ.log( e.message );
+				}
 				if (e.current > 0) {this.fijiTask.setProgressValue(e.current);}
 				if (e.maximum > 0) {this.fijiTask.setProgressMaximum(e.maximum);}
 			} );
@@ -431,8 +435,6 @@ public class Detection implements Command
 	            		//System.out.println(roi.get( "position_yx" ) );
 	            		List<Integer> pos = (List<Integer>) roi.get(  "position_yx" );
 	            		PointRoi proi = new PointRoi(pos.get( 1 ), pos.get( 0 ));
-	            		int roi_frame = (int) roi.get( "position_frame" );
-	            		proi.setPosition( 1, 1, roi_frame );
 	            		//proi.setFillColor( new Color(2) );
 	            		//proi.setStrokeWidth( 5 );
 	            		proi.setSize( 4 );
@@ -440,15 +442,21 @@ public class Detection implements Command
 	            		proi.setName( ""+roi_name );
 	            		proi.setImage( imp );
 	            		imp.setRoi( proi );
-	            		rm.addRoi( proi ); // Show on original image
+	            		int roi_frame = (int) roi.get( "position_frame" );
+	            		proi.setPosition( 1, 1, roi_frame );
+	            		rm.addRoi( proi ); // Add to RoiManager
 	            		
-	            } catch (Exception e) {
+	            } 
+	            catch (Exception e) 
+	            {
 	                System.err.println("Error creating ROI: " + e.getMessage());
 	                e.printStackTrace();
 	            }
 	        }
 			
 			rm.setVisible( true );
+			rm.runCommand("Show All");  
+			
 			
 			}
 		catch ( final Exception e )
