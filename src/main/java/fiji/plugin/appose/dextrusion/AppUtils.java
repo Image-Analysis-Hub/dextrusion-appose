@@ -23,6 +23,12 @@ import net.imagej.ImgPlus;
 import net.imglib2.img.ImagePlusAdapter;
 import net.imglib2.type.numeric.real.DoubleType;
 
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+import java.util.zip.*;
+
+
 public class AppUtils
 {
 
@@ -220,5 +226,195 @@ public class AppUtils
 		}
 		return script;
 	}
+
+	/**
+	 * Download and extract a .zip file if necessary 
+	 * @param fileUrl
+	 * @param zipFilePath
+	 * @param destinationDir
+	 * @throws IOException
+	 */
+	public static String downloadAndExtract( String destinationDir, String modelName, String model_URL ) throws IOException 
+	{
+	        
+	        Path modelPath = Path.of( destinationDir, modelName ); // model specific directory in .local/dextrusion
+	        System.out.println(""+modelPath.toString());
+	        
+	        // Check if destination exists and is not empty
+	        if (Files.exists( modelPath ) && 
+	            Files.isDirectory( modelPath ) && 
+	            Files.list( modelPath ).findAny().isPresent()) 
+	        {
+	            //System.out.println("Destination already exists and is not empty.");
+	            return modelPath.toAbsolutePath().toString();
+	        }
+	        
+	        // Download with progress
+	        String zipfile = Path.of( destinationDir, modelName+".zip").toString();
+	        System.out.println(""+zipfile);
+	        
+	        downloadFileWithProgress( model_URL, zipfile );
+	        
+	        // Extract
+	        extractZip( zipfile, destinationDir.toString() );
+	        
+	        // Cleanup
+	        Files.deleteIfExists( Paths.get( zipfile ) );
+	        return modelPath.toAbsolutePath().toString();
+	    }
+	    
+		/** Download .zip file and show progress of download */
+	private static void downloadFileWithProgress(String fileUrl, String destinationPath) 
+	        throws IOException 
+	{
+	    
+		 URI uri = URI.create( fileUrl );
+         URL url = uri.toURL();
+         System.out.println(""+url.toString());
+         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+	    
+	    // Disable automatic decompression
+	    connection.setRequestProperty("Accept-Encoding", "identity");
+	    connection.setInstanceFollowRedirects(true);
+	    //connection.setConnectTimeout(10000); // 10 seconds
+        //connection.setReadTimeout(30000); // 30 seconds
+       
+	    //connection.connect();
+	    
+	    int responseCode = connection.getResponseCode();
+	    if (responseCode != HttpURLConnection.HTTP_OK) 
+	    {
+	        throw new IOException("Failed to download. HTTP error code: " + responseCode);
+	    }
+	    
+	    long fileSize = connection.getContentLengthLong();
+	    
+	    try (InputStream in = connection.getInputStream()) {
+	        
+	        // Use custom InputStream wrapper to track progress
+	        ProgressInputStream progressIn = new ProgressInputStream(in, fileSize);
+	        
+	        // Copy directly to file
+	        Files.copy(progressIn, Paths.get(destinationPath), 
+	                   StandardCopyOption.REPLACE_EXISTING);
+	        
+	        System.out.println("\nDownload complete!");
+	    } finally {
+	        connection.disconnect();
+	    }
+	}
+
+	// Progress tracking wrapper
+	static class ProgressInputStream extends FilterInputStream {
+	    private long totalBytesRead = 0;
+	    private long fileSize;
+	    private int lastProgress = 0;
+	    
+	    public ProgressInputStream(InputStream in, long fileSize) {
+	        super(in);
+	        this.fileSize = fileSize;
+	    }
+	    
+	    @Override
+	    public int read(byte[] b, int off, int len) throws IOException {
+	        int bytesRead = super.read(b, off, len);
+	        if (bytesRead > 0) {
+	            totalBytesRead += bytesRead;
+	            if (fileSize > 0) {
+	                int progress = (int) ((totalBytesRead * 100) / fileSize);
+	                if (progress != lastProgress) {
+	                    System.out.print("\rDownloading: " + progress + "%");
+	                    lastProgress = progress;
+	                }
+	            }
+	        }
+	        return bytesRead;
+	    }
+	}
+	    /** 
+	     * Extract the content of the .zip file 
+	     * @param zipFilePath
+	     * @param destinationDir
+	     * @throws IOException
+	     */
+	    private static void extractZip( String zipFilePath, String destinationDir ) 
+	            throws IOException 
+	    {
+	        byte[] buffer = new byte[8192];
+	        
+	        try (ZipInputStream zis = new ZipInputStream(
+	                new BufferedInputStream(new FileInputStream(zipFilePath)))) 
+	        {
+	            
+	            ZipEntry entry;
+	           
+	            while ((entry = zis.getNextEntry()) != null) 
+	            {
+	                Path filePath = Paths.get( destinationDir, entry.getName()) ;
+	                //System.out.println(""+entry.getName());
+	                
+	                // Security check
+	                if ( !filePath.normalize().startsWith(destinationDir) ) 
+	                {
+	                    throw new IOException("Bad zip entry");
+	                }
+	                
+	                if (entry.isDirectory()) 
+	                {
+	                    Files.createDirectories(filePath);
+	                    System.out.println(""+filePath);
+	                } 
+	                else 
+	                {
+	                    Files.createDirectories( filePath.getParent() );
+	                    
+	                    try (BufferedOutputStream bos = new BufferedOutputStream(
+	                            new FileOutputStream(filePath.toFile()))) {
+	                        int len;
+	                        while ((len = zis.read(buffer)) > 0) {
+	                            bos.write(buffer, 0, len);
+	                        }
+	                    }
+	                }
+	                System.out.println("Extracted: " + entry.getName());
+	            }
+	        }
+	    }
 	
+	    public static String createLocalDirectory( String dirname ) 
+	    {
+	        try 
+	        {
+	            // Create directory in user's .local folder if not there
+	            String userHome = System.getProperty( "user.home" );
+	            Path locals = Paths.get( userHome, ".local" );
+	            if ( !Files.exists( locals ) ) 
+		        {
+		            Files.createDirectories( locals );
+		        } 
+		        
+		        Path localshare = Paths.get( userHome, ".local", "share" );
+	            if ( !Files.exists( localshare ) ) 
+		        {
+		            Files.createDirectories( localshare );
+		        } 
+		        Path localDir = Paths.get(userHome, ".local", "share", dirname );
+		        
+		        // Check if exists, create if not
+		        if ( !Files.exists(localDir) ) 
+		        {
+		            Files.createDirectories(localDir);
+		            System.out.println("Created directory: " + localDir);
+		        } 
+		        
+		        return localDir.toString();    
+	         } 
+	        catch (IOException e) 
+	        {
+	            e.printStackTrace();
+	        }
+	        return "";
+	   }
+	    
+	   
 }

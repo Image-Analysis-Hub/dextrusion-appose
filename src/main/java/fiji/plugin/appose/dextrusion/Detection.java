@@ -80,12 +80,13 @@ public class Detection implements Command
 	@Parameter
 	private TaskService taskService;
 	
-	@Parameter(  
+	/**@Parameter(  
 			label = "Choose model directory",
 		    description = "Directory that contains the model(s) to run",
 		    style = "directory"    
 	)
-	private File modelDirectory;
+	private File modelDirectory;*/
+	private String model_dir;
 	
 	@Parameter( label="cell_diameter", description="Typical cell diameter"  )
 	private double cell_diameter = 25;
@@ -142,6 +143,26 @@ public class Detection implements Command
 				
 		// Grab the current image.
 		final ImagePlus imp = WindowManager.getCurrentImage();
+		
+		if ( imp == null )
+		{
+			IJ.error( "No opened movie found. Open one before" );
+			return;
+		}
+			
+		
+		// Download and install if necessary the notum model
+		String model_name = "notum_all";
+		String model_url = "https://github.com/Image-Analysis-Hub/DeXtrusion/raw/refs/heads/main/DeXNets/"+model_name+".zip";
+		String model_local_dir = AppUtils.createLocalDirectory( "dextrusion" );
+		try 
+		{
+			model_dir = AppUtils.downloadAndExtract( model_local_dir, model_name, model_url );
+		}
+		catch ( final IOException e )
+		{
+			IJ.error( "Failed to find/download the models: "+e );	
+		}
 		
 		try
 		{
@@ -214,7 +235,8 @@ public class Detection implements Command
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
 		inputs.put( "extrusion_duration", extrusion_duration );
-		inputs.put( "model", modelDirectory.getAbsolutePath() );
+		//inputs.put( "model", modelDirectory.getAbsolutePath() );
+		inputs.put( "model", model_dir );
 		inputs.put( "get_probabilities", get_probabilities );
 		inputs.put( "group_size", group_size );
 		inputs.put( "event_threshold", event_threshold );
