@@ -5,15 +5,10 @@ import static fiji.plugin.appose.dextrusion.AppUtils.transferCalibration;
 import static fiji.plugin.appose.dextrusion.AppUtils.setChannelsLUT;
 import static fiji.plugin.appose.dextrusion.AppUtils.getScript;
 
-import java.awt.Color;
+
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Window;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.image.IndexColorModel;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -37,28 +32,20 @@ import org.apposed.appose.NDArray;
 import org.apposed.appose.Service;
 import org.apposed.appose.Service.Task;
 import org.apposed.appose.Service.TaskStatus;
-import org.scijava.Initializable;
+
 import org.scijava.ItemVisibility;
 import org.scijava.command.Command;
-import org.scijava.command.DynamicCommand;
-import org.scijava.event.EventService;
-import org.scijava.module.DefaultMutableModuleItem;
-import org.scijava.module.ModuleItem;
-import org.scijava.module.MutableModuleItem;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.task.TaskService;
-import org.scijava.ui.UIService;
+
 
 import ij.CompositeImage;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
-import ij.gui.ImageWindow;
 import ij.gui.PointRoi;
-import ij.gui.Roi;
 import ij.io.FileInfo;
-import ij.plugin.CompositeConverter;
 import ij.plugin.frame.RoiManager;
 import net.imagej.ImgPlus;
 import net.imglib2.appose.NDArrays;
@@ -183,12 +170,6 @@ public class Detection implements Command
 	{
 		// Print os and arch info
 		System.out.println( "Starting process..." );
-
-		/*
-		 * We use pixi to create a Python environment with the
-		 * necessary dependencies. It is specified within the file pixi.toml in the resources folder
-		 */
-		final String dextrusionEnv = pixiEnv();
 
 		/*
 		 * The Python script that we want to run. It is loaded from the run_detection.py file in the resource folder. 
@@ -468,31 +449,7 @@ public class Detection implements Command
 
 	
 	
-	/*
-	 * The environment specification.
-	 * 
-	 * This is a YAML specification of a pixi environment, that specifies the
-	 * dependencies that we need in Python to run our script. In this case we
-	 * need scikit-image for the rotation, and appose to be able to receive the
-	 * input and send the output back to Fiji. Note that we specify appose as a
-	 * pip dependency, as it is not available on conda-forge.
-	 * 
-	 * Most likely in your scripts the dependencies will be different, but you
-	 * will always need appose.
-	 */
-	private String pixiEnv()
-	{
-		String env = "";
-		try {
-			final URL pixiFile = this.getClass().getResource("pixi.toml");
-			env = IOUtils.toString(pixiFile, StandardCharsets.UTF_8);
-			
-		} catch (final IOException e) {
-			e.printStackTrace();
-		}
-		return env;
-	}
-
+	
 	
 	// Helper functions to display progress while building the Appose environment.
 	// Temporary solution until Appose has a nicer built-in way to do this.
