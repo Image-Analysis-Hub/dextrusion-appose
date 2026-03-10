@@ -61,8 +61,10 @@ else:
     input_movie = imread( movie_path )
     extrusion_duration = 4.5
     group_size = 150000
-    event_threshold = 180
-    event_volume = 800
+    extrusion_threshold = 180
+    extrusion_volume = 800
+    get_extrusions = True
+    get_divisions = False
 	
 shift_xy = 10
 shift_t = 2
@@ -88,13 +90,17 @@ task.update(
 )
 
 ## get extrusion events
-ext_index = dexter.get_event_index( "cell_death" )
-rois = dexter.get_event_rois(icat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_death")
+if get_extrusions:
+	ext_index = dexter.get_event_index( "cell_death" )
+	rois = dexter.get_event_rois(icat=ext_index, volume_threshold=extrusion_volume, proba_threshold=extrusion_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_death")
+else:
+	rois = []
 ## get division events
-div_index = dexter.get_event_index( "cell_division" )
-rois_div = dexter.get_event_rois(icat=div_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_division")
-for roi in rois_div:
-	rois.append(roi)
+if get_divisions:
+	div_index = dexter.get_event_index( "cell_division" )
+	rois_div = dexter.get_event_rois(icat=div_index, volume_threshold=division_volume, proba_threshold=division_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_division")
+	for roi in rois_div:
+		rois.append(roi)
 
 if appose_mode:
     task.outputs["rois"] = rois

@@ -75,6 +75,10 @@ public class Detection implements Command
 	private File modelDirectory;*/
 	private String model_dir;
 	
+	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
+	private String movie_resolution = "--------- Movie resolution";
+	
+	
 	@Parameter( label="cell_diameter", description="Typical cell diameter"  )
 	private double cell_diameter = 25;
 	
@@ -90,11 +94,23 @@ public class Detection implements Command
 	//@Parameter( label="Get ROIs", description="Given event point-like positions as ROIs", callback="show_roi_parameters"  )
 	//private boolean get_rois = true;
 	
-	@Parameter( label="Event threshold", description="Probability threshold to detect an event", style="column:0" )
-	private int event_threshold = 180;
+	@Parameter( label="Extrusion ROIs", description="Add cell death positions as point ROI" )
+	private boolean get_extrusion_roi = true;
 	
-	@Parameter( label="Event volume", description="Probability volutme to detect an event (in pixels)", style="column:1" )
-	private int event_volume = 800;
+	@Parameter( label="Extrusion detection threshold", description="Probability threshold to detect an extrusion event", style="column:0" )
+	private int extrusion_threshold = 180;
+	
+	@Parameter( label="Extrusion detection volume", description="Probability volutme to detect an extrusion event (in pixels)", style="column:1" )
+	private int extrusion_volume = 800;
+	
+	@Parameter( label="Division ROIs", description="Add cell division positions as point ROI" )
+	private boolean get_division_roi = true;
+	
+	@Parameter( label="Division detection threshold", description="Probability threshold to detect a division event", style="column:0" )
+	private int division_threshold = 180;
+	
+	@Parameter( label="Division detection volume", description="Probability volutme to detect a division event (in pixels)", style="column:1" )
+	private int division_volume = 500;
 
 	@Parameter( label="-------", description="Information",  visibility=ItemVisibility.MESSAGE )
 	private String info_advanced = "-------- Advanced parameter";
@@ -197,19 +213,28 @@ public class Detection implements Command
 		inputs.put( "movie", NDArrays.asNDArray( img ) );
 
 		FileInfo fileInfo = imp.getOriginalFileInfo();
-		if (fileInfo != null && fileInfo.fileName != null) {
+		if (fileInfo != null && fileInfo.fileName != null) 
+		{
 		    String fileName = fileInfo.fileName;
 		    String directory = fileInfo.directory;
 		    
-		    if (directory != null && fileName != null) {
+		    if (directory != null && fileName != null) 
+		    {
 		        String fullPath = new File(directory, fileName).getAbsolutePath();
-		        System.out.println("Full path: " + fullPath);
+		        IJ.log("Movie full path: " + fullPath);
 		        inputs.put( "movie_path", fullPath );
-		    } else if (fileName != null) {
-		        System.out.println("File name: " + fileName);
-		        // Note: This might just be the file name without full path
+		    } 
+		    else if (fileName != null) 
+		    {
+		    	fileName = imp.getTitle();
+		        directory = IJ.getDirectory( "file" );  // most recent directory
+		        String fullPath = new File(directory, fileName).getAbsolutePath();
+		        IJ.log("Movie full path: " + fullPath);
+		        inputs.put( "movie_path", fullPath );   
 		    }
-		} else {
+		} 
+		else 
+		{
 		    System.out.println("No file information available");
 		}
 		
@@ -220,8 +245,13 @@ public class Detection implements Command
 		inputs.put( "model", model_dir );
 		inputs.put( "get_probabilities", get_probabilities );
 		inputs.put( "group_size", group_size );
-		inputs.put( "event_threshold", event_threshold );
-		inputs.put( "event_volume", event_volume );
+		inputs.put( "get_extrusions", get_extrusion_roi );
+		inputs.put( "extrusion_threshold", extrusion_threshold );
+		inputs.put( "extrusion_volume", extrusion_volume );
+		inputs.put( "get_divisions", get_division_roi );
+		inputs.put( "division_threshold", division_threshold );
+		inputs.put( "division_volume", division_volume );
+		
 		
 		/*
 		 * Create or retrieve the environment.
@@ -538,7 +568,7 @@ public class Detection implements Command
 			{
 				progress_total = progresses[1] * 2; // should run two networks most of the time @TODO: check how many networks should be run
 			}
-			IJ.showProgress( shift+progresses[0], progress_total );
+			IJ.showProgress( shift+1+progresses[0], progress_total );
 			if ( progresses[0] == progress_total /2 )
 			{
 				IJ.showStatus( "Event detection (2/2)" );
