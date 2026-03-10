@@ -5,7 +5,7 @@ import static fiji.plugin.appose.dextrusion.AppUtils.transferCalibration;
 import static fiji.plugin.appose.dextrusion.AppUtils.setChannelsLUT;
 import static fiji.plugin.appose.dextrusion.AppUtils.getScript;
 
-
+import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Window;
@@ -410,16 +410,17 @@ public class Detection implements Command
 			}
 			rm.reset();
 			List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );
+			Color[] colors = {new Color(200,50,0), new Color(0,50,200) };
 			for ( Map<String, Object> roi : map_rois ) 
 			{
 	            try {
 	            		//System.out.println(roi.get( "position_yx" ) );
 	            		List<Integer> pos = (List<Integer>) roi.get(  "position_yx" );
 	            		PointRoi proi = new PointRoi(pos.get( 1 ), pos.get( 0 ));
-	            		//proi.setFillColor( new Color(2) );
-	            		//proi.setStrokeWidth( 5 );
-	            		proi.setSize( 4 );
+	            		proi.setSize( 3 );
 	            		String roi_name = (String) roi.get( "name" );
+	            		int roi_type = roi_name.equals("cell_death") ? 0 : 1;
+	            		proi.setStrokeColor( colors[roi_type] );
 	            		proi.setName( ""+roi_name );
 	            		proi.setImage( imp );
 	            		imp.setRoi( proi );

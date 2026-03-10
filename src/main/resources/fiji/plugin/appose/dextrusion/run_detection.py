@@ -87,8 +87,14 @@ task.update(
     message=f"Getting event positions from probability map"
 )
 
+## get extrusion events
 ext_index = dexter.get_event_index( "cell_death" )
 rois = dexter.get_event_rois(icat=ext_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_death")
+## get division events
+div_index = dexter.get_event_index( "cell_division" )
+rois_div = dexter.get_event_rois(icat=div_index, volume_threshold=event_volume, proba_threshold=event_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_division")
+for roi in rois_div:
+	rois.append(roi)
 
 if appose_mode:
     task.outputs["rois"] = rois
