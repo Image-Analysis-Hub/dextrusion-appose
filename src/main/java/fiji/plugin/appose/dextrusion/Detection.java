@@ -61,7 +61,7 @@ import net.imglib2.type.numeric.RealType;
  * 
  */
 
-@Plugin(type = Command.class, menuPath = "Plugins>DeXtrusion-Appose>Detect events")
+@Plugin(type = Command.class, menuPath = "Plugins>Detection>Detect events (DeXtrusion)")
 public class Detection implements Command
 {
 	@Parameter
@@ -196,47 +196,13 @@ public class Detection implements Command
 		final ImgPlus< T > img = rawWraps( imp );
 		
 		/*
-		 * Copy the image into a shared memory image and wrap it into an
-		 * NDArray, then store it in an input map that we will pass to the
-		 * Python script.
-		 * 
-		 * Note that we could have passed multiple inputs to the Python script
-		 * by putting more entries in the input map, and they would all be
-		 * available in the Python script as shared memory NDArrays.
-		 * 
-		 * A ND array is a multi-dimensional array that is stored in shared
-		 * memory, that can be unwrapped as a NumPy array in Python, and wrapped
-		 * as a ImgLib2 image in Java.
-		 * 
+		 * Transfer the movie to shared object
 		 */
 		final Map< String, Object > inputs = new HashMap<>();
 		inputs.put( "movie", NDArrays.asNDArray( img ) );
 
-		FileInfo fileInfo = imp.getOriginalFileInfo();
-		if (fileInfo != null && fileInfo.fileName != null) 
-		{
-		    String fileName = fileInfo.fileName;
-		    String directory = fileInfo.directory;
-		    
-		    if (directory != null && fileName != null) 
-		    {
-		        String fullPath = new File(directory, fileName).getAbsolutePath();
-		        IJ.log("Movie full path: " + fullPath);
-		        inputs.put( "movie_path", fullPath );
-		    } 
-		    else if (fileName != null) 
-		    {
-		    	fileName = imp.getTitle();
-		        directory = IJ.getDirectory( "file" );  // most recent directory
-		        String fullPath = new File(directory, fileName).getAbsolutePath();
-		        IJ.log("Movie full path: " + fullPath);
-		        inputs.put( "movie_path", fullPath );   
-		    }
-		} 
-		else 
-		{
-		    System.out.println("No file information available");
-		}
+		String fullPath = AppUtils.getFullPath( imp );
+		inputs.put( "movie_path", fullPath );   
 		
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
@@ -255,12 +221,6 @@ public class Detection implements Command
 		
 		/*
 		 * Create or retrieve the environment.
-		 * 
-		 * The first time this code is run, Appose will create the pixi
-		 * environment as specified by the dextrusionEnv string, download and
-		 * install the dependencies. This can take a few minutes, but it is only
-		 * done once. The next time the code is run, Appose will just reuse the
-		 * existing environment, so it will start much faster.
 		 */
 		IJ.log( "Downloading/Installing the environement if necessary..." );
 		
@@ -281,14 +241,6 @@ public class Detection implements Command
 
 			python.debug( msg -> show_messages( msg ) );
 			
-			/*
-			 * With this service, we can now create a task that will run the
-			 * Python script with the specified inputs. This command takes the
-			 * script as first argument, and a map of inputs as second argument.
-			 * The keys of the map will be the variable names in the Python
-			 * script, and the values are the data that will be passed to
-			 * Python.
-			 */
 			final Task task = python.task( script, inputs );
 
 			// Start the script, and return to Java immediately.
@@ -318,8 +270,6 @@ public class Detection implements Command
 			IJ.showStatus( "Event detection (1/2)" );
 			task.waitFor();
 			IJ.showStatus( "Detection finished" );
-			
-			
 			this.fijiTask.finish();
 
 			// Verify that it worked.
@@ -330,18 +280,13 @@ public class Detection implements Command
 			final long end = System.currentTimeMillis();
 			System.out.println( "Task finished in " + ( end - start ) / 1000. + " s" );
 
-			/*
-			 * Unwrap output.
-			 * 
-			 * In the Python script (see below), we create a new NDArray called
-			 * 'rotated' that contains the result of the processing. Here we
-			 * retrieve this NDArray from the task outputs, and wrap it into a
-			 * ShmImg, which is an ImgLib2 image that is backed by shared
-			 * memory. We can then display this image with
-			 * ImageJFunctions.show(). Note that this does not involve any
-			 * copying of the data, as the NDArray and the ShmImg are both just
-			 * views on the same shared memory array.
-			 */
+			// Get the output and process them
+			List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );
+			CellEvents cell_events = new CellEvents();
+			cell_events.setParameters( inputs );
+			cell_events.setMovie( imp );
+			cell_events.readRois( map_rois, true );
+			
 			if ( get_probabilities )
 			{
 				final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );
@@ -354,6 +299,7 @@ public class Detection implements Command
 				
 				transferCalibration( imp, probamap );
 				probamap.show();
+				cell_events.setProbabilityMaps( probamap );
 				
 				/**
 				 * Mouse/Keyboard interactions
@@ -433,44 +379,13 @@ public class Detection implements Command
 				
 			} 
 			
-			RoiManager rm = RoiManager.getInstance();
-			if (rm == null )
-			{
-				rm = new RoiManager();
-			}
-			rm.reset();
-			List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );
-			Color[] colors = {new Color(200,50,0), new Color(0,50,200) };
-			for ( Map<String, Object> roi : map_rois ) 
-			{
-	            try {
-	            		//System.out.println(roi.get( "position_yx" ) );
-	            		List<Integer> pos = (List<Integer>) roi.get(  "position_yx" );
-	            		PointRoi proi = new PointRoi(pos.get( 1 ), pos.get( 0 ));
-	            		proi.setSize( 3 );
-	            		String roi_name = (String) roi.get( "name" );
-	            		int roi_type = roi_name.equals("cell_death") ? 0 : 1;
-	            		proi.setStrokeColor( colors[roi_type] );
-	            		proi.setName( ""+roi_name );
-	            		proi.setImage( imp );
-	            		imp.setRoi( proi );
-	            		int roi_frame = (int) roi.get( "position_frame" );
-	            		proi.setPosition( 1, 1, roi_frame );
-	            		rm.addRoi( proi ); // Add to RoiManager
-	            		
-	            } 
-	            catch (Exception e) 
-	            {
-	                System.err.println("Error creating ROI: " + e.getMessage());
-	                e.printStackTrace();
-	            }
-	        }
+			// Display the interface to save/modify the results
+			DetectionGUI gui = new DetectionGUI();
+			gui.setDetector( this );
+			gui.setCellEvents( cell_events );
+			gui.run();
 			
-			rm.setVisible( true );
-			rm.runCommand("Show All");  
-			
-			
-			}
+		}
 		catch ( final Exception e )
 		{
 			IJ.handleException( e );

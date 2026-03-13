@@ -3,10 +3,6 @@ package fiji.plugin.appose.dextrusion;
 import java.awt.Color;
 import java.awt.image.ColorModel;
 import java.awt.image.IndexColorModel;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -15,6 +11,7 @@ import org.apache.commons.io.IOUtils;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.io.FileInfo;
 import ij.measure.Calibration;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
@@ -415,6 +412,42 @@ public class AppUtils
 	        }
 	        return "";
 	   }
+	    
+	    /**
+	     * Get the full path of the currently opened image
+	     * @param imp
+	     * @return
+	     */
+	  public static String getFullPath( ImagePlus imp )
+	  {
+		FileInfo fileInfo = imp.getOriginalFileInfo();
+		if (fileInfo != null && fileInfo.fileName != null) 
+		{
+		    String fileName = fileInfo.fileName;
+		    String directory = fileInfo.directory;
+		    
+		    if (directory != null && fileName != null) 
+		    {
+		        String fullPath = new File(directory, fileName).getAbsolutePath();
+		        IJ.log("Movie full path: " + fullPath);
+		        return fullPath;
+		    } 
+		    else if (fileName != null) 
+		    {
+		    	fileName = imp.getTitle();
+		        directory = IJ.getDirectory( "file" );  // most recent directory
+		        String fullPath = new File(directory, fileName).getAbsolutePath();
+		        IJ.log("Movie full path: " + fullPath);
+		        return fullPath;
+		       
+		    }
+		} 
+		else 
+		{
+		    System.out.println("No file information available");
+		}
+		return "";
+	  }
 	    
 	   
 }
