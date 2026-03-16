@@ -128,7 +128,7 @@ public class CellEvents
 	
 	/**
 	 * Load all deXtrusion objects from given image filename
-	 * @param imp
+	 * @param imagefile Input file containing the raw movie
 	 */
 	public void loadFromFile( File imagefile )
 	{

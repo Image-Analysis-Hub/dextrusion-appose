@@ -247,9 +247,6 @@ public class AppUtils
 
 	/**
 	 * Download and extract a .zip file if necessary 
-	 * @param fileUrl
-	 * @param zipFilePath
-	 * @param destinationDir
 	 * @throws IOException
 	 */
 	public static String downloadAndExtract( String destinationDir, String modelName, String model_URL ) throws IOException 
