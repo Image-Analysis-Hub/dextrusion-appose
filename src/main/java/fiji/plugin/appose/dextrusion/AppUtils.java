@@ -413,6 +413,19 @@ public class AppUtils
 	        return "";
 	   }
 	    
+	    /** Get the directory where to put the results
+	     * given the location of the main image
+	     */
+	    public static String getResultsDirectory( File filepath )
+	    {
+	    	String directory = filepath.getParent();
+	    	String resdir = directory+File.separator+"results";
+	    	File resfolder = new File(resdir);
+	    	if ( !resfolder.exists() )
+	    		resfolder.mkdir();
+	    	return resdir;
+	    }
+	    
 	    /**
 	     * Get the full path of the currently opened image
 	     * @param imp

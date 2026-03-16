@@ -56,12 +56,11 @@ import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 
 /*
- * This class implements an example of a classical Fiji plugin, 
- * that calls native Python code with Appose.
+ * This class implements running DeXtrusion (python) from a Fiji plugin with Appose 
  * 
  */
 
-@Plugin(type = Command.class, menuPath = "Plugins>Detection>Detect events (DeXtrusion)")
+@Plugin(type = Command.class, menuPath = "Plugins>DeXtrusion>Detect events")
 public class Detection implements Command
 {
 	@Parameter
