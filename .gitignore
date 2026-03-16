@@ -25,6 +25,8 @@
 /.settings/
 /target/
 /.idea/
+/data/
+/recordings/
 
 # Oss
 .DS_Store
