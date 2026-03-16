@@ -17,13 +17,12 @@
 
 	<name>dextrusion-appose</name>
 	<description> Running DeXtrusion with a Fiji plugin based on Appose.</description>
-	<url>http://mycompany.com/imagej/bio-formats-reader/</url>
+	<url>https://github.com/Image-Analysis-Hub/DeXtrusion</url>
 	<inceptionYear>2026</inceptionYear>
 	<organization>
-		<name>My Company</name>
-		<url>http://mycompany.com/</url>
+		<name>DeXtrusion</name>
 	</organization>
-	
+
 	<licenses>
 		<license>
 			<name>GNU General Public License v3+</name>
@@ -34,9 +33,8 @@
 
 	<developers>
 		<developer>
-			<id>your-id-here</id>
-			<name>Your Name Here</name>
-			<url>http://imagej.net/User:YourWikiUsername</url>
+			<name>Gaelle Letort</name>
+			<url>https://github.com/gletort</url>
 			<roles>
 				<role>founder</role>
 				<role>lead</role>
@@ -84,8 +82,8 @@
 	<properties>
 		<package-name>fiji.plugin.appose.dextrusion</package-name>
 		<main-class>fiji.plugin.appose.dextrusion.Detection</main-class>
-		<license.licenseName>gpl_v2</license.licenseName>
-		<license.copyrightOwners>My Company, Inc.</license.copyrightOwners>
+		<license.licenseName>gpl_v3</license.licenseName>
+		<license.copyrightOwners>DeXtrusion team</license.copyrightOwners>
 
 		<!-- Use Java 21. -->
 		<scijava.jvm.version>21</scijava.jvm.version>
