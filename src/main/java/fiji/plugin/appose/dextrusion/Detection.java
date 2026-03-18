@@ -256,9 +256,12 @@ public class Detection implements Command
 		 * Using this environment, we create a service that will run the Python
 		 * script.
 		 */
-		try ( Service python = env.python().init("import numpy") )
+		try ( Service python = env.python() ) 
 		{
-
+			// Import all that depends on numpy for Windows
+			python.init("import os\n"
+					+ "import numpy as np\n"
+					+ "from dextrusion.DeXtrusion import DeXtrusion");
 			python.debug( msg -> show_messages( msg ) );
 			
 			final Task task = python.task( script, inputs );
