@@ -90,12 +90,13 @@ if True:
 		get_extrusions = True
 		get_divisions = False
 		event_roi_names = ["cell_death", "cell_division"]
+		## Merge "peaks" if distance < disxy (spatial) & dist (time)
+		dist_xy = 10
+		dist_time = 4
 	
-	shift_xy = 10
-	shift_t = 2
-	## Merge "peaks" if distance < disxy (spatial) & dist (time)
-	disxy = 10
-	distime = 4
+		shift_xy = 10
+		shift_time = 2
+
 
 	model_list = get_model_list( model )
 	dexter.set_output_names( movie_path )
@@ -106,7 +107,7 @@ if True:
     	message=f"DeXtrusion event detection (takes time)"
 	)
 
-	dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_t, group_size=group_size)
+	dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_time, group_size=group_size)
 
 	task.update(
    		current = 3,
@@ -121,8 +122,8 @@ if True:
 		if get_event:
 			threshold : int = globals().get( event+'_threshold', 0 )
 			volume : int = globals().get( event+'_volume', 0 )
-			evt_index = dexter.get_event_index( event" )
-			rois_evt = dexter.get_event_rois(icat=evt_index, volume_threshold=volume, proba_threshold=threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname=event)
+			evt_index = dexter.get_event_index( ""+event )
+			rois_evt = dexter.get_event_rois(icat=evt_index, volume_threshold=volume, proba_threshold=threshold, thres=125, disxy=dist_xy, dist=dist_time, astype="dict", catname=event)
 			for roi in rois_evt:
 				rois.append(roi)
 

@@ -268,6 +268,12 @@ public class Detection extends DynamicCommand implements Initializable
 		inputs.put( "movie_path", fullPath );   
 		
 		int group_size = Integer.valueOf( prefService.get(AdvancedParameters.class, "group_size", "150000") );
+		int dist_xy = Integer.valueOf( prefService.get(AdvancedParameters.class, "disxy", "10") );
+		int dist_time = Integer.valueOf( prefService.get(AdvancedParameters.class, "distime", "4") );
+
+		int shift_xy = Integer.valueOf( prefService.get(AdvancedParameters.class, "shift_xy", "10") );
+		int shift_t = Integer.valueOf( prefService.get(AdvancedParameters.class, "shift_t", "2") );
+		
 		double cell_diameter = config.getCellDiameter();
 		double extrusion_duration = config.getExtrusionDuration();
 		
@@ -278,6 +284,11 @@ public class Detection extends DynamicCommand implements Initializable
 		inputs.put( "model", model_dir );
 		inputs.put( "get_probabilities", get_probabilities );
 		inputs.put( "group_size", group_size );
+		inputs.put( "dist_xy", dist_xy );
+		inputs.put( "dist_time", dist_time );
+		inputs.put( "shift_xy", shift_xy );
+		inputs.put( "shift_time", shift_t );
+		
 		inputs.put( "event_roi_names", event_names );
 		
 		// Add event specific parameters
@@ -289,7 +300,7 @@ public class Detection extends DynamicCommand implements Initializable
 				continue;
 			}
 			System.out.println(""+event);
-			boolean get_event = (boolean) checkboxROIItems.get("get_"+event).getValue(this);
+			boolean get_event = (boolean) checkboxROIItems.get(""+event).getValue(this);
 			inputs.put( "get_"+event, get_event );
 			int threshold = (int) thresholdROIItems.get("threshold_"+event).getValue(this);
 			inputs.put( event+"_threshold", threshold );
