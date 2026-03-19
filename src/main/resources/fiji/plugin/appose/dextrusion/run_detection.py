@@ -89,6 +89,7 @@ if True:
 		extrusion_volume = 800
 		get_extrusions = True
 		get_divisions = False
+		event_roi_names = ["cell_death", "cell_division"]
 	
 	shift_xy = 10
 	shift_t = 2
@@ -113,18 +114,17 @@ if True:
     	message=f"Getting event positions from probability map"
 	)
 
-	## get extrusion events
-	if get_extrusions:
-		ext_index = dexter.get_event_index( "cell_death" )
-		rois = dexter.get_event_rois(icat=ext_index, volume_threshold=extrusion_volume, proba_threshold=extrusion_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_death")
-	else:
-		rois = []
-	## get division events
-	if get_divisions:
-		div_index = dexter.get_event_index( "cell_division" )
-		rois_div = dexter.get_event_rois(icat=div_index, volume_threshold=division_volume, proba_threshold=division_threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname="cell_division")
-		for roi in rois_div:
-			rois.append(roi)
+	## get each listed event to ROI
+	rois = []
+	for event in event_roi_names:
+		get_event : boolean = globals().get('get_'+event, False)
+		if get_event:
+			threshold : int = globals().get( event+'_threshold', 0 )
+			volume : int = globals().get( event+'_volume', 0 )
+			evt_index = dexter.get_event_index( event" )
+			rois_evt = dexter.get_event_rois(icat=evt_index, volume_threshold=volume, proba_threshold=threshold, thres=125, disxy=disxy, dist=distime, astype="dict", catname=event)
+			for roi in rois_evt:
+				rois.append(roi)
 
 	if appose_mode:
 		task.outputs["rois"] = rois

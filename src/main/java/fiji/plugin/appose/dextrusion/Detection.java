@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -53,11 +54,16 @@ import org.apposed.appose.NDArray;
 import org.apposed.appose.Service;
 import org.apposed.appose.Service.Task;
 import org.apposed.appose.Service.TaskStatus;
-
+import org.scijava.Initializable;
 import org.scijava.ItemVisibility;
 import org.scijava.command.Command;
+import org.scijava.command.DynamicCommand;
+import org.scijava.module.DefaultMutableModuleItem;
+import org.scijava.module.ModuleItem;
+import org.scijava.module.MutableModuleItem;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import org.scijava.prefs.PrefService;
 import org.scijava.task.TaskService;
 
 
@@ -82,64 +88,24 @@ import net.imglib2.type.numeric.RealType;
  */
 
 @Plugin(type = Command.class, menuPath = "Plugins>DeXtrusion>Detect events")
-public class Detection implements Command
+public class Detection extends DynamicCommand implements Initializable
 {
 	@Parameter
 	private TaskService taskService;
-	
-	/**@Parameter(  
-			label = "Choose model directory",
-		    description = "Directory that contains the model(s) to run",
-		    style = "directory"    
-	)
-	private File modelDirectory;*/
+
 	private String model_dir;
 	
-	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
-	private String movie_resolution = "--------- Movie resolution";
+	@Parameter
+    private PrefService prefService; // injected automatically
 	
-	
-	@Parameter( label="cell_diameter", description="Typical cell diameter"  )
-	private double cell_diameter = 25;
-	
-	@Parameter( label="extrusion_duration", description="Typical duration of an extrusion event (in frames)"  )
-	private double extrusion_duration = 4.5;
+	@Parameter( label="Loaded model:", description="Information", visibility=ItemVisibility.MESSAGE )
+	private String movie_info = "--------- Model info";
 	
 	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
 	private boolean get_probabilities = true;
 	
 	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
 	private String roi_parameters = "--------- ROI parameters";
-	
-	//@Parameter( label="Get ROIs", description="Given event point-like positions as ROIs", callback="show_roi_parameters"  )
-	//private boolean get_rois = true;
-	
-	@Parameter( label="Extrusion ROIs", description="Add cell death positions as point ROI" )
-	private boolean get_extrusion_roi = true;
-	
-	@Parameter( label="Extrusion detection threshold", description="Probability threshold to detect an extrusion event", style="column:0" )
-	private int extrusion_threshold = 180;
-	
-	@Parameter( label="Extrusion detection volume", description="Probability volutme to detect an extrusion event (in pixels)", style="column:1" )
-	private int extrusion_volume = 800;
-	
-	@Parameter( label="Division ROIs", description="Add cell division positions as point ROI" )
-	private boolean get_division_roi = true;
-	
-	@Parameter( label="Division detection threshold", description="Probability threshold to detect a division event", style="column:0" )
-	private int division_threshold = 180;
-	
-	@Parameter( label="Division detection volume", description="Probability volutme to detect a division event (in pixels)", style="column:1" )
-	private int division_volume = 500;
-
-	@Parameter( label="-------", description="Information",  visibility=ItemVisibility.MESSAGE )
-	private String info_advanced = "-------- Advanced parameter";
-	
-	@Parameter( label="Show debug messages", description="Show full debug messages in the Console" )
-	private boolean show_debug = false;
-	
-	@Parameter( label="Computation size", description="Depending on computer capabilities, can compute more at one time" )
-	private int group_size = 150000;
 	
 	private List<String> color_list = Arrays.asList("magenta", "cyan", "orange", "green", "red", "yellow", "blue");
 
@@ -148,6 +114,96 @@ public class Detection implements Command
 	// dextrusion progress
 	private int progress_total = 0;
 	private int shift = 0;
+	// parameters read from the model config file
+	private DeXtrusionConfig config = null;
+	// name of events detected by the model
+	private String[] event_names = {""};
+	
+	private Map<String, ModuleItem<Boolean>> checkboxROIItems = new HashMap<>();
+	private Map<String, ModuleItem<Integer>> thresholdROIItems = new HashMap<>();
+	
+
+	
+
+	/**
+	 * Before to ask for the parameters, check the model to use
+	 */
+	@Override
+	public void initialize() 
+	{
+		// Download and install if necessary the notum model
+		String model_name = prefService.get(AdvancedParameters.class, "model_choice", "notum_all");
+		String model_url = "https://github.com/Image-Analysis-Hub/DeXtrusion/raw/refs/heads/main/DeXNets/"+model_name+".zip";
+		String model_local_dir = AppUtils.createLocalDirectory( "dextrusion" );
+
+		try 
+		{
+			model_dir = AppUtils.downloadAndExtract( model_local_dir, model_name, model_url );
+		}
+		catch ( final IOException e )
+		{
+			IJ.error( "Failed to find/download the models: "+e );	
+		}
+		
+		// Read the configuration file of the model to extract infos
+		try 
+		{
+			config = new DeXtrusionConfig( model_dir );
+			event_names = config.getCleanEventNames();   
+		}
+		catch (Exception e)
+		{
+			IJ.error( "Failed to read model configuration: "+e );
+		}
+			
+		final MutableModuleItem<String> infoItem = //
+			getInfo().getMutableInput("movie_info", String.class);
+		String evt_names = "";
+		for (int j=0; j<event_names.length; j++ ) evt_names += " "+event_names[j];
+		System.out.println(""+model_name);
+		infoItem.setValue( this, " "+model_name+" with events:"+evt_names);
+		infoItem.setPersisted(false);
+		
+		for ( int i=0; i<event_names.length; i++ )
+		{
+			String event = event_names[i];
+			if ( event.contains("cell_SOP") || event.equals("") )
+			{
+				continue;
+			}
+			// Add check box for the event
+			final ModuleItem<Boolean> item = new DefaultMutableModuleItem<>(getInfo(),
+				event+"_ROIs", boolean.class);
+			item.setLabel("Get "+event+" ROIs" );
+			boolean checked = Boolean.valueOf( prefService.get(this.getClass(), event+"_ROIs", "true") );			
+			item.setDescription( "Extract point-like detection of this event from the probability map" );
+			item.setValue(this, checked);
+			checkboxROIItems.put(""+event, item);
+			getInfo().addInput(item);
+			
+			// Add threshold detection for the event
+			final ModuleItem<Integer> thresitem = new DefaultMutableModuleItem<>(getInfo(),
+				"threshold_"+event, Integer.class);
+			thresitem.setLabel( ""+event+" detection threshold" );
+			int value = Integer.valueOf( prefService.get(this.getClass(), "threshold_"+event, "180") );
+			thresitem.setValue(this, value);
+			thresitem.setDescription( "Set the probability threshold to consider a pixel as positive for this event" );
+			thresholdROIItems.put( "threshold_"+event, thresitem );
+			getInfo().addInput( thresitem );
+			
+			// Add threshold volume for the event
+			final ModuleItem<Integer> volitem = new DefaultMutableModuleItem<>(getInfo(),
+				"volume_"+event, Integer.class);
+			volitem.setLabel( ""+event+" detection volume" );
+			int vol = Integer.valueOf( prefService.get(this.getClass(), "volume_"+event, "700") );
+			volitem.setValue(this, vol);
+			volitem.setDescription( "Set the minimum volume of positive pixels to consider an event present at the center" );	
+			thresholdROIItems.put( "volume_"+event, volitem );
+			getInfo().addInput( volitem );
+		}
+	}
+
+	
 	
 	/*
 	 * This is the entry point for the plugin. This is what is called when the
@@ -163,7 +219,7 @@ public class Detection implements Command
 		fijiTask = taskService.createTask("dextrusion-appose");
 		fijiTask.setStatusMessage( "Launching DeXtrusion appose task." );
 		fijiTask.start();
-				
+			
 		// Grab the current image.
 		final ImagePlus imp = WindowManager.getCurrentImage();
 		
@@ -173,19 +229,6 @@ public class Detection implements Command
 			return;
 		}
 			
-		
-		// Download and install if necessary the notum model
-		String model_name = "notum_all";
-		String model_url = "https://github.com/Image-Analysis-Hub/DeXtrusion/raw/refs/heads/main/DeXNets/"+model_name+".zip";
-		String model_local_dir = AppUtils.createLocalDirectory( "dextrusion" );
-		try 
-		{
-			model_dir = AppUtils.downloadAndExtract( model_local_dir, model_name, model_url );
-		}
-		catch ( final IOException e )
-		{
-			IJ.error( "Failed to find/download the models: "+e );	
-		}
 		
 		try
 		{
@@ -224,6 +267,10 @@ public class Detection implements Command
 		String fullPath = AppUtils.getFullPath( imp );
 		inputs.put( "movie_path", fullPath );   
 		
+		int group_size = Integer.valueOf( prefService.get(AdvancedParameters.class, "group_size", "150000") );
+		double cell_diameter = config.getCellDiameter();
+		double extrusion_duration = config.getExtrusionDuration();
+		
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
 		inputs.put( "extrusion_duration", extrusion_duration );
@@ -231,13 +278,24 @@ public class Detection implements Command
 		inputs.put( "model", model_dir );
 		inputs.put( "get_probabilities", get_probabilities );
 		inputs.put( "group_size", group_size );
-		inputs.put( "get_extrusions", get_extrusion_roi );
-		inputs.put( "extrusion_threshold", extrusion_threshold );
-		inputs.put( "extrusion_volume", extrusion_volume );
-		inputs.put( "get_divisions", get_division_roi );
-		inputs.put( "division_threshold", division_threshold );
-		inputs.put( "division_volume", division_volume );
+		inputs.put( "event_roi_names", event_names );
 		
+		// Add event specific parameters
+		for ( int i=0; i<event_names.length; i++ )
+		{
+			String event = event_names[i];
+			if ( event.equals("") || event.equals("cell_SOP") )
+			{
+				continue;
+			}
+			System.out.println(""+event);
+			boolean get_event = (boolean) checkboxROIItems.get("get_"+event).getValue(this);
+			inputs.put( "get_"+event, get_event );
+			int threshold = (int) thresholdROIItems.get("threshold_"+event).getValue(this);
+			inputs.put( event+"_threshold", threshold );
+			int volume = (int) thresholdROIItems.get("volume_"+event).getValue(this);
+			inputs.put( event+"_volume", volume );
+		}
 		
 		/*
 		 * Create or retrieve the environment.
@@ -480,6 +538,7 @@ public class Detection implements Command
 	private void show_messages( String msg )
 	{
 		boolean is_progress = msg.matches(PROGRESS_PATTERN);
+		boolean show_debug = Boolean.valueOf( prefService.get(AdvancedParameters.class, "show_debug", "false") );
 		if ( show_debug )
 		{
 			System.out.println("[DBG] " +msg );
