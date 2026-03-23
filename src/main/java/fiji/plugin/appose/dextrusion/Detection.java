@@ -43,8 +43,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JProgressBar;
 import javax.swing.WindowConstants;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.filechooser.FileSystemView;
 
 import org.apache.commons.io.IOUtils;
 import org.apposed.appose.Appose;
@@ -101,7 +104,10 @@ public class Detection extends DynamicCommand implements Initializable
 	@Parameter( label="Loaded model:", description="Information", visibility=ItemVisibility.MESSAGE )
 	private String movie_info = "--------- Model info";
 	
-	@Parameter( label="Show probability maps", description="Show the probability (of events) maps" )
+	@Parameter( label="Process", choices= {"current image", "several images (batch)"}, description="Choose to run on the current opened image or as batch on a folder" )
+	private String process = "current image";
+	
+	@Parameter( label="Keep probability maps", description="Show/save the probability (of events) maps" )
 	private boolean get_probabilities = true;
 	
 	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
@@ -219,33 +225,131 @@ public class Detection extends DynamicCommand implements Initializable
 		fijiTask = taskService.createTask("dextrusion-appose");
 		fijiTask.setStatusMessage( "Launching DeXtrusion appose task." );
 		fijiTask.start();
-			
-		// Grab the current image.
-		final ImagePlus imp = WindowManager.getCurrentImage();
 		
-		if ( imp == null )
+		if ( process.equals("current image") )
 		{
-			IJ.error( "No opened movie found. Open one before" );
-			return;
+			// Grab the current image.
+			final ImagePlus imp = WindowManager.getCurrentImage();
+		
+			if ( imp == null )
+			{
+				IJ.error( "No opened movie found. Open one before" );
+				return;
+			}
+			try
+			{
+				// Runs the processing code.
+				process_one_image( imp );
+			}
+			catch ( final IOException | BuildException e ) {
+				IJ.error("An error occurred: " + e.getMessage());
+				e.printStackTrace();
+			}
+		}
+		else 
+		{
+			 JFileChooser chooser = new JFileChooser( IJ.getDirectory("file") );
+		        chooser.setDialogTitle("Select images to process");
+		        chooser.setMultiSelectionEnabled(true); 
+		        FileNameExtensionFilter filter = new FileNameExtensionFilter(
+		                "Image Files", "tif", "tiff" );
+		        chooser.setFileFilter(filter);
+		        
+		        // Show dialog and capture result
+		        int returnValue = chooser.showOpenDialog(null);
+
+		        if (returnValue == JFileChooser.APPROVE_OPTION) 
+		        {
+		            File[] files = chooser.getSelectedFiles();
+		            try
+		            {
+		            	// Runs the processing code.
+		            	process_files( files );
+		            }
+		            catch ( final IOException | BuildException e ) {
+		            	IJ.error("An error occurred: " + e.getMessage());
+		            	e.printStackTrace();
+		            }
+		        }
 		}
 			
 		
-		try
-		{
-			// Runs the processing code.
-			process( imp );
-		}
-		catch ( final IOException | BuildException e ) {
-			IJ.error("An error occurred: " + e.getMessage());
-			e.printStackTrace();
-		}
+		
 	}
 	
-
-	/*
-	 * Actually do something with the image.
+	/**
+	 * Only one image will be processed, with interactive postprocessing after
+	 * @param <T>
+	 * @param imp
+	 * @throws IOException
+	 * @throws BuildException
 	 */
-	public < T extends RealType< T > & NativeType< T > > void process( final ImagePlus imp ) throws IOException, BuildException
+	public  < T extends RealType< T > & NativeType< T > > void process_one_image( final ImagePlus imp ) throws IOException, BuildException
+	{
+		// Wrap the ImagePlus into a ImgLib2 image.
+		final ImgPlus< T > img = rawWraps( imp );
+		/*
+		 * Transfer the movie to shared object
+		 */
+		final Map< String, Object > inputs = new HashMap<>();
+		inputs.put( "movie", NDArrays.asNDArray( img ) );
+
+		String fullPath = AppUtils.getFullPath( imp );
+		inputs.put( "movie_path", fullPath ); 	
+		inputs.put( "input_image", true );  // process the input image
+		
+		Task task = process( inputs );
+
+		// Handle post-processing of the results
+		CellEvents cell_events = new CellEvents();
+		cell_events.setParameters( inputs );
+		cell_events.setMovie( imp );
+		// Get the output and process them
+		List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );		
+		cell_events.readRois( map_rois, true );
+		
+		// If probamaps were calculated
+		if ( get_probabilities )
+		{
+			final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );	
+			final Img< T > output = new ShmImg<>( maskArr );
+			final ImagePlus tmp = ImageJFunctions.wrap( output, "probability_maps" );
+			CompositeImage probamap = new CompositeImage( tmp );
+	        // Set display mode
+	        probamap.setDisplayMode( IJ.COMPOSITE );
+	        setChannelsLUT( probamap, color_list );
+			
+			transferCalibration( imp, probamap );
+			probamap.show();
+			cell_events.setProbabilityMaps( probamap );
+		} 
+	
+		// Display the interface to save/modify the results
+		DetectionGUI gui = new DetectionGUI();
+		gui.setDetector( this );
+		gui.setCellEvents( cell_events );
+		gui.run();
+		
+	}
+
+	
+	public  void process_files( final File[] files ) throws IOException, BuildException
+	{
+		final Map< String, Object > inputs = new HashMap<>();
+		String[] movies = new String[files.length];
+		for ( int i=0; i<files.length; i++ )
+		{
+			movies[i] = files[i].getAbsolutePath();
+		}
+		inputs.put( "movies", movies );
+		inputs.put( "input_image", false );  // process the files from path
+		process( inputs );
+	}
+	
+	/*
+	 * Calls the python service to process the movie(s)
+	 */
+	public < T extends RealType< T > & NativeType< T > > Task process( final Map<String, Object> inputs ) throws IOException, BuildException
 	{
 		// Print os and arch info
 		System.out.println( "Starting process..." );
@@ -255,18 +359,7 @@ public class Detection extends DynamicCommand implements Initializable
 		 */
 		final String script = getScript( this.getClass().getResource("run_detection.py" ) );
 
-		// Wrap the ImagePlus into a ImgLib2 image.
-		final ImgPlus< T > img = rawWraps( imp );
-		
-		/*
-		 * Transfer the movie to shared object
-		 */
-		final Map< String, Object > inputs = new HashMap<>();
-		inputs.put( "movie", NDArrays.asNDArray( img ) );
-
-		String fullPath = AppUtils.getFullPath( imp );
-		inputs.put( "movie_path", fullPath );   
-		
+		// Get the advanced parameters
 		int group_size = Integer.valueOf( prefService.get(AdvancedParameters.class, "group_size", "150000") );
 		int dist_xy = Integer.valueOf( prefService.get(AdvancedParameters.class, "disxy", "10") );
 		int dist_time = Integer.valueOf( prefService.get(AdvancedParameters.class, "distime", "4") );
@@ -371,119 +464,21 @@ public class Detection extends DynamicCommand implements Initializable
 			// Benchmark.
 			final long end = System.currentTimeMillis();
 			System.out.println( "Task finished in " + ( end - start ) / 1000. + " s" );
-
-			// Get the output and process them
-			List<Map<String, Object>> map_rois = (List<Map<String, Object>>) task.outputs.get( "rois" );
-			CellEvents cell_events = new CellEvents();
-			cell_events.setParameters( inputs );
-			cell_events.setMovie( imp );
-			cell_events.readRois( map_rois, true );
 			
-			if ( get_probabilities )
-			{
-				final NDArray maskArr = ( NDArray ) task.outputs.get( "probamaps" );
-				final Img< T > output = new ShmImg<>( maskArr );
-				final ImagePlus tmp = ImageJFunctions.wrap( output, "probability_maps" );
-				CompositeImage probamap = new CompositeImage( tmp );
-		        // Set display mode
-		        probamap.setDisplayMode( IJ.COMPOSITE );
-		        setChannelsLUT( probamap, color_list );
-				
-				transferCalibration( imp, probamap );
-				probamap.show();
-				cell_events.setProbabilityMaps( probamap );
-				
-				/**
-				 * Mouse/Keyboard interactions
-				 * ImageWindow w = probamap.getWindow();
-				 
-				if (w!=null)
-				{
-					KeyListener kl =  new KeyListener()
-					{
-						
-						@Override
-						public void keyTyped( KeyEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-							System.out.println(""+e.getKeyChar());
-						}
-						
-						@Override
-						public void keyReleased( KeyEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-						
-						@Override
-						public void keyPressed( KeyEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-					};
-					w.addKeyListener( kl );
-					w.getCanvas().addKeyListener( kl );
-					w.getCanvas().addMouseListener( new MouseListener()
-					{
-						
-						@Override
-						public void mouseReleased( MouseEvent e )
-						{
-							// TODO Auto-generated method stub
-							
-							System.out.println(""+ e );
-						}
-						
-						@Override
-						public void mousePressed( MouseEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-						
-						@Override
-						public void mouseExited( MouseEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-						
-						@Override
-						public void mouseEntered( MouseEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-						
-						@Override
-						public void mouseClicked( MouseEvent e )
-						{
-							// TODO Auto-generated method stub
-							System.out.println(""+ e );
-						}
-					}) ;
-				} else {
-					System.out.println("NO window");
-				} */
-				
-			} 
+			if ( process.equals("current image") )
+				return task;
 			
-			// Display the interface to save/modify the results
-			DetectionGUI gui = new DetectionGUI();
-			gui.setDetector( this );
-			gui.setCellEvents( cell_events );
-			gui.run();
-			
+			return null;
 		}
-		catch ( final Exception e )
+		catch ( Exception e)
 		{
-			IJ.handleException( e );
+			IJ.error( "" + e );
 		}
+		return null;
 	}
-
+		
+	
+	
 
 	
 	

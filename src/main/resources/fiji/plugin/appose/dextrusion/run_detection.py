@@ -73,7 +73,10 @@ if True:
 
 
 	if appose_mode:
-		input_movie = movie.ndarray()
+		if input_image:
+			## process only current image, passed in the shared memory
+			input_movie = movie.ndarray()
+			movies = [movie_path]
 	else:
 		## Default parameters to test
 		cell_diameter = 25
@@ -92,62 +95,86 @@ if True:
 		event_roi_names = ["cell_death", "cell_division"]
 		## Merge "peaks" if distance < disxy (spatial) & dist (time)
 		dist_xy = 10
-		dist_time = 4
-	
+		dist_time = 4	
 		shift_xy = 10
 		shift_time = 2
+		input_image = False
 
 
 	model_list = get_model_list( model )
-	dexter.set_output_names( movie_path )
+	save_outpus = True ## save the outputs rather than sending them back (for batch processing)
+	
+	nsteps = 2*len(movies)
+	cur = 1
+	for imgfile in movies:
+		cur = cur + 1
+		if input_image:
+			## processing only one movie
+			save_outputs = False
+			dexter.set_output_names( movie_path )
+			task.update(
+    		current = cur,
+    		maximum= nsteps,
+    		message=f"DeXtrusion event detection (takes time)"
+			)
+			dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_time, group_size=group_size)
+		else:
+			## open and process a movie
+			if os.path.exists( imgfile ):
+				task.update( current=cur, maximum=nsteps, message=f"Detecting events on movie "+str(imgfile)+" (takes time)" )
+				## Detect events
+				dexter.detect_events_onmovie( imgfile, models=model_list, 
+                                     cell_diameter=cell_diameter, extrusion_duration=extrusion_duration, 
+                                     dxy=shift_xy, dz=shift_time, 
+                                     group_size=group_size )
+	
+		cur = cur + 1
+		task.update(
+   			current = cur,
+    		maximum= nsteps,
+    		message=f"Getting event positions from probability map"
+		)
+
+		## get each listed event to ROI
+		rois = []
+		for event in event_roi_names:
+			get_event : boolean = globals().get('get_'+event, False)
+			if get_event:
+				threshold : int = globals().get( event+'_threshold', 0 )
+				volume : int = globals().get( event+'_volume', 0 )
+				evt_index = dexter.get_event_index( ""+event )
+					
+				if input_image:
+					rois_evt = dexter.get_event_rois(icat=evt_index, volume_threshold=volume, proba_threshold=threshold, 
+					thres=125, disxy=dist_xy, dist=dist_time, astype="dict", catname=event)
+					for roi in rois_evt:
+						rois.append(roi)
+				else:
+					dexter.get_rois( cat=evt_index, volume_threshold=volume, proba_threshold=threshold, disxy=dist_xy, dist=dist_time, catname=event )
+
+		if input_image:
+			task.outputs["rois"] = rois
+
+		## Get probability maps (return them or save them)
+		if get_probabilities:
+			event_list = dexter.get_events_names()
+			task.update( f"Getting probability maps for events: "+str(event_list) )
+			if input_image:	
+				probamaps = []
+				for event in event_list:
+					probamap = dexter.get_probability_map( event )
+					probamap = dexter.to_init_shape(probamap)
+					probamaps.append( probamap )
+				probamaps = np.array( probamaps )
+				# transform mask CTYX -> TZCYX
+				proba_5d = np.moveaxis(to_5d(probamaps), 2, 0)
+				task.outputs["probamaps"] = share_as_ndarray(proba_5d)
+			else:
+				dexter.write_probamaps(cat=None, astime=True)
 
 	task.update(
-    	current = 2,
-    	maximum= 4,
-    	message=f"DeXtrusion event detection (takes time)"
-	)
-
-	dexter.detect_events(input_movie, model_list, cell_diameter, extrusion_duration, shift_xy, shift_time, group_size=group_size)
-
-	task.update(
-   		current = 3,
-    	maximum= 4,
-    	message=f"Getting event positions from probability map"
-	)
-
-	## get each listed event to ROI
-	rois = []
-	for event in event_roi_names:
-		get_event : boolean = globals().get('get_'+event, False)
-		if get_event:
-			threshold : int = globals().get( event+'_threshold', 0 )
-			volume : int = globals().get( event+'_volume', 0 )
-			evt_index = dexter.get_event_index( ""+event )
-			rois_evt = dexter.get_event_rois(icat=evt_index, volume_threshold=volume, proba_threshold=threshold, thres=125, disxy=dist_xy, dist=dist_time, astype="dict", catname=event)
-			for roi in rois_evt:
-				rois.append(roi)
-
-	if appose_mode:
-		task.outputs["rois"] = rois
-
-	if get_probabilities:
-		event_list = dexter.get_events_names()
-		task.update( f"Getting probability maps for events: "+str(event_list) )
-		probamaps = []
-		for event in event_list:
-			probamap = dexter.get_probability_map( event )
-			probamap = dexter.to_init_shape(probamap)
-			probamaps.append( probamap )
-		probamaps = np.array( probamaps )
-
-		if appose_mode:
-			# transform mask CTYX -> TZCYX
-			proba_5d = np.moveaxis(to_5d(probamaps), 2, 0)
-			task.outputs["probamaps"] = share_as_ndarray(proba_5d)
-
-	task.update(
-    	current = 4,
-    	maximum= 4,
+    	current = nsteps,
+    	maximum= nsteps,
     	message=f"Finished DeXtrusion task"
 	)
 
