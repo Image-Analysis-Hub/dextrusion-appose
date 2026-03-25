@@ -11,7 +11,7 @@
 
 	<groupId>fiji.plugin</groupId>
 	<artifactId>DeXtrusion_Appose</artifactId>
-	<version>0.1.2-SNAPSHOT</version>
+	<version>0.1.2</version>
 
 	<name>dextrusion-appose</name>
 	<description> Running DeXtrusion with a Fiji plugin based on Appose.</description>
@@ -65,7 +65,7 @@
 		<connection>scm:git:git://github.com/Image-Analysis-Hub/dextrusion-appose</connection>
 		<developerConnection>
 			scm:git:git@github.com:Image-Analysis-Hub/dextrusion-appose</developerConnection>
-		<tag>DeXtrusion_Appose-0.1.0</tag>
+		<tag>DeXtrusion_Appose-0.1.2</tag>
 		<url>https://github.com/Image-Analysis-Hub/dextrusion-appose</url>
 	</scm>
 

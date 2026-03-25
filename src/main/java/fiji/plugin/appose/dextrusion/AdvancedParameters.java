@@ -63,7 +63,7 @@ public class AdvancedParameters implements Command
 	private int group_size = 150000;
 	
 	
-	/**@Parameter(  
+	/**Parameter(  
 	label = "Choose model directory",
     description = "Directory that contains the model(s) to run",
     style = "directory"    
