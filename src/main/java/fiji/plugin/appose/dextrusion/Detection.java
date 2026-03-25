@@ -109,6 +109,13 @@ public class Detection extends DynamicCommand implements Initializable
 	
 	@Parameter( label="Keep probability maps", description="Show/save the probability (of events) maps" )
 	private boolean get_probabilities = true;
+
+	@Parameter( label="Typical cell diameter (pixels)", description="Approximative average cell diameter, in pixels, used to scale the movie to the model scale" )
+	private double cell_diameter = 25.0;
+	
+	@Parameter( label="Typical extrusion duration (frames)", description="Approximate cell extrusion duration (number of frames where it's visible), used to scale the movie temporally")
+	private double extrusion_duration = 4.5;
+	
 	
 	@Parameter( label="-------", description="Information", visibility=ItemVisibility.MESSAGE )
 	private String roi_parameters = "--------- ROI parameters";
@@ -367,8 +374,9 @@ public class Detection extends DynamicCommand implements Initializable
 		int shift_xy = Integer.valueOf( prefService.get(AdvancedParameters.class, "shift_xy", "10") );
 		int shift_t = Integer.valueOf( prefService.get(AdvancedParameters.class, "shift_t", "2") );
 		
-		double cell_diameter = config.getCellDiameter();
-		double extrusion_duration = config.getExtrusionDuration();
+		// Still ask these two parameters to allow to use movie of different scales than the model
+		//double cell_diameter = config.getCellDiameter();
+		//double extrusion_duration = config.getExtrusionDuration();
 		
 		// Put all parameters to pass to run dextrusion
 		inputs.put( "cell_diameter", cell_diameter );
