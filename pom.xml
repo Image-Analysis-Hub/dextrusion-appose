@@ -11,7 +11,7 @@
 
 	<groupId>fiji.plugin</groupId>
 	<artifactId>DeXtrusion_Appose</artifactId>
-	<version>0.1.4-SNAPSHOT</version>
+	<version>0.1.4</version>
 
 	<name>dextrusion-appose</name>
 	<description> Running DeXtrusion with a Fiji plugin based on Appose.</description>

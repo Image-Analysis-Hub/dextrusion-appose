@@ -214,7 +214,7 @@ public class CellEvents
 	
 	/**
 	 * Zoom on movie image at given ROI position 
-	 * @param PointRoi roi
+	 * @param roi
 	 * @param zoomFactor
 	 */
 	public void zoomToPosition( Roi roi, double zoomFactor) 
