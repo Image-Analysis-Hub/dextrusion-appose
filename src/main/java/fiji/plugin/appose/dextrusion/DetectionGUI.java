@@ -60,11 +60,16 @@ public class DetectionGUI implements Command
 	        SwingUtilities.invokeLater(() -> createAndShowGUI());
 	}
 
+
+	
+	/**
+	 * Defines all the interface
+	 */
 	private void createAndShowGUI() 
 	{
 	        frame = new JFrame( "DeXtrusion" );
 	        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-	        frame.setLayout( new GridLayout(3, 3, 10, 10) );
+	        frame.setLayout( new GridLayout(6, 3, 10, 10) );
 
 	     
 	        // Create buttons: save probability maps
@@ -166,23 +171,93 @@ public class DetectionGUI implements Command
 	        });
 	        check_rois_btn.setToolTipText( "Go through all displayed ROI of a given type and validate it or not by pressing y or n" );
 	        
+	        // Zoom on a Roi
+	        SpinnerNumberModel current_roi = new SpinnerNumberModel(
+	        	    0,      // initial value
+	        	    0,       // minimum
+	        	    20000,     // maximum
+	        	    1        // step
+	        	);
+	        JSpinner current_roi_spin = new JSpinner( current_roi );
+	        JPanel current_roi_panel = new JPanel(new FlowLayout(FlowLayout.LEFT) );
+	        JButton current_roi_zoom = new JButton("Zoom on event n°");
+	        current_roi_zoom.setToolTipText( "Choose number of event to zoom on (in the order in the ROIManager)" );
+	        current_roi_panel.add( current_roi_zoom);
+	        current_roi_panel.add( current_roi_spin );
+	        current_roi_zoom.addActionListener( new ActionListener() 
+	        {
+	            @Override
+	            public void actionPerformed( ActionEvent e ) 
+	            {
+	                cell_events.zoomOnRoi( (int) current_roi_spin.getValue() );
+	            }
+	        });
+
+	        // Previous/Next buttons
+	        JButton next_roi = new JButton( "Next event ->" );
+	        next_roi.addActionListener( new ActionListener() 
+	        {
+	            @Override
+	            public void actionPerformed( ActionEvent e ) 
+	            {
+	            	int nb = (int) current_roi_spin.getValue();
+	            	nb ++;
+	            	if ( nb >= cell_events.nbEvents() )
+	            	{
+	            		nb = 0;
+	            	}
+	            	current_roi_spin.setValue( nb );
+	                cell_events.zoomOnRoi( nb );
+	            }
+	        });
+	        // Previous/Next buttons
+	        JButton prev_roi = new JButton( "<- Previous event" );
+	        prev_roi.addActionListener( new ActionListener() 
+	        {
+	            @Override
+	            public void actionPerformed( ActionEvent e ) 
+	            {
+	            	int nb = (int) current_roi_spin.getValue();
+	            	nb --;
+	            	if ( nb < 0 )
+	            	{
+	            		nb = cell_events.nbEvents() -1 ;
+	            	}
+	            	current_roi_spin.setValue( nb );
+	                cell_events.zoomOnRoi( nb );
+	            }
+	        });
+	        
+	        
 	        // Add buttons to frame
 	        frame.add( save_proba,0 );  
 	        frame.add( Box.createGlue(), 1);
 	        frame.add( Box.createGlue(), 2);
 	        
-	        frame.add( display_choice, 3 );
-	        frame.add( save_rois_btn, 4 );	   
-	        frame.add( Box.createGlue(), 5);
-		       
-	        frame.add( wsize_panel, 6);
-	        frame.add( nframe_panel, 7);
-	        frame.add( check_rois_btn, 8 );	  
+	        frame.add( new JLabel("Display events:") );
+	        frame.add( Box.createGlue());
+	        frame.add( new JLabel("") );
+
+	        frame.add( display_choice );
+	        frame.add( save_rois_btn );	   
+	        frame.add( Box.createGlue() );
+
+	        frame.add( prev_roi );
+	        frame.add( current_roi_panel );
+	        frame.add( next_roi );
+	        
+	        frame.add( new JLabel("Verify ROIs:") );
+	        frame.add( Box.createGlue());
+	        frame.add( new JLabel("") );
+	        
+	        frame.add( wsize_panel );
+	        frame.add( nframe_panel );
+	        frame.add( check_rois_btn );	
 	        
 	        // Display
 	        frame.pack();
-	        //ImageJ ij = IJ.getInstance();
-	        //frame.setLocationRelativeTo(ij); // Center on screen
+	        ImageJ ij = IJ.getInstance();
+	        frame.setLocationRelativeTo(ij); // Center on screen
 	        frame.setVisible(true);
 	   
 	}

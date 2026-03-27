@@ -25,6 +25,7 @@ import ij.IJ;
 import ij.ImagePlus;
 
 import java.awt.Color;
+import java.awt.Rectangle;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import ij.gui.ImageCanvas;
 import ij.gui.PointRoi;
 import ij.gui.Roi;
 import ij.io.FileSaver;
@@ -185,6 +187,15 @@ public class CellEvents
 	}
 	
 	/**
+	 * Current number of events in RoiManager
+	 * @return
+	 */
+	public int nbEvents()
+	{
+		return rm.getCount();
+	}
+	
+	/**
 	 * Save ROIs of selected event to zip file
 	 * @param event_name
 	 */
@@ -199,6 +210,64 @@ public class CellEvents
 		rm.save( folder_name+File.separator+image_name+"_"+event_name+".zip" );
         IJ.log("Events "+event_name+" saved in "+folder_name+File.separator+image_name+"_"+event_name+".zip" );
 		rm.deselect();
+	}
+	
+	/**
+	 * Zoom on movie image at given ROI position 
+	 * @param imp
+	 * @param PointRoi roi
+	 * @param zoomFactor
+	 */
+	public void zoomToPosition( Roi roi, double zoomFactor) 
+	{
+        movie.setT( roi.getTPosition() );
+        // Get the image canvas
+        ImageCanvas canvas = movie.getCanvas();
+        if (canvas == null)
+        {
+            IJ.error("Cannot get image canvas");
+            return;
+        }
+       
+        // Get back to main image zoom
+        canvas.unzoom();
+        
+        // Get the source rectangle (entire image at full resolution)
+        Rectangle srcRect = canvas.getSrcRect();
+        
+        // Set the new source rectangle centered on our point
+        int newWidth = (int)(srcRect.width / zoomFactor);
+        int newHeight = (int)(srcRect.height / zoomFactor);
+        
+        int newX = (int) roi.getXBase() - newWidth/2;
+        int newY = (int) roi.getYBase() - newHeight/2;
+        
+        // Make sure we don't go out of bounds
+        if (newX < 0) newX = 0;
+        if (newY < 0) newY = 0;
+        if (newX + newWidth > movie.getWidth()) newX = movie.getWidth() - newWidth;
+        if (newY + newHeight > movie.getHeight()) newY = movie.getHeight() - newHeight;
+        
+        // Apply the new source rectangle
+        srcRect.setBounds(newX, newY, newWidth, newHeight);
+        canvas.setMagnification( zoomFactor );
+        canvas.repaint();
+        
+        // Update display
+        movie.updateAndDraw();
+    }
+	
+	/**
+	 * Zoom on selected ROI
+	 * @param i
+	 */
+	public void zoomOnRoi( int i )
+	{
+		if ( rm.getCount() < i )
+			return;
+		Roi roi = rm.getRoi( i );
+		
+		zoomToPosition( roi, 2.0 );
 	}
 	
 	/**
