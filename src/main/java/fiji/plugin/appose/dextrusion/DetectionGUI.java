@@ -109,8 +109,11 @@ public class DetectionGUI implements Command
 	            }
 	        });
 	        display_choice.setToolTipText( "Choose which events (ROIs) to display" );
+	        display_choice.setBackground( new Color(205, 229, 252) );
+	        
 
 	        JButton save_rois_btn = new JButton( "Save displayed ROIs" );
+	        //save_rois_btn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
 	        save_rois_btn.addActionListener(new ActionListener() 
 	        {
 	            @Override
@@ -121,6 +124,7 @@ public class DetectionGUI implements Command
 	            }
 	        });
 	        save_rois_btn.setToolTipText( "Save currently displayed events (ROIs). All if all is selected" );
+	        save_rois_btn.setBackground( new Color(175, 205, 255) );
 	        
 	        // Parameters for Check Rois: window size and number of frames
 	        SpinnerNumberModel window_size_model = new SpinnerNumberModel(
@@ -151,7 +155,7 @@ public class DetectionGUI implements Command
 	        nframe_panel.add( nframe_spinner);
 	        
 	        // Check ROIs
-	        JButton check_rois_btn = new JButton( "Check displayed ROIs" );
+	        JButton check_rois_btn = new JButton( "☑ Check displayed ROIs" );
 	        check_rois_btn.addActionListener(new ActionListener() 
 	        {
 	            @Override
@@ -194,7 +198,7 @@ public class DetectionGUI implements Command
 	        });
 
 	        // Previous/Next buttons
-	        JButton next_roi = new JButton( "Next event ->" );
+	        JButton next_roi = new JButton( "Next event ↪" );
 	        next_roi.addActionListener( new ActionListener() 
 	        {
 	            @Override
@@ -211,7 +215,7 @@ public class DetectionGUI implements Command
 	            }
 	        });
 	        // Previous/Next buttons
-	        JButton prev_roi = new JButton( "<- Previous event" );
+	        JButton prev_roi = new JButton( "↩ Previous event" );
 	        prev_roi.addActionListener( new ActionListener() 
 	        {
 	            @Override
@@ -227,7 +231,11 @@ public class DetectionGUI implements Command
 	                cell_events.zoomOnRoi( nb );
 	            }
 	        });
-	        
+	        // Color the zoom button line
+	        Color zoom_color = new Color( 211, 227, 255 );
+	        next_roi.setBackground( zoom_color );
+	        prev_roi.setBackground( zoom_color );
+	        current_roi_zoom.setBackground( zoom_color );	        
 	        
 	        // Add buttons to frame
 	        frame.add( save_proba,0 );  

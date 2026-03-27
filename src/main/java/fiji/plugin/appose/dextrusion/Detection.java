@@ -230,7 +230,7 @@ public class Detection extends DynamicCommand implements Initializable
 	{
 		// start task
 		fijiTask = taskService.createTask("dextrusion-appose");
-		fijiTask.setStatusMessage( "Launching DeXtrusion appose task." );
+		fijiTask.setStatusMessage( "⌛ Launching DeXtrusion appose task." );
 		fijiTask.start();
 		
 		if ( process.equals("current image") )
