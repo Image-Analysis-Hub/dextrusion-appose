@@ -65,7 +65,7 @@
 		<connection>scm:git:git://github.com/Image-Analysis-Hub/dextrusion-appose</connection>
 		<developerConnection>
 			scm:git:git@github.com:Image-Analysis-Hub/dextrusion-appose</developerConnection>
-		<tag>DeXtrusion_Appose-0.1.2</tag>
+		<tag>DeXtrusion_Appose-0.1.4</tag>
 		<url>https://github.com/Image-Analysis-Hub/dextrusion-appose</url>
 	</scm>
 

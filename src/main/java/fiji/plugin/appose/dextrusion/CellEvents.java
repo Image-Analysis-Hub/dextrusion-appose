@@ -214,7 +214,6 @@ public class CellEvents
 	
 	/**
 	 * Zoom on movie image at given ROI position 
-	 * @param imp
 	 * @param PointRoi roi
 	 * @param zoomFactor
 	 */
