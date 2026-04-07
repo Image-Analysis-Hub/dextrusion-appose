@@ -414,11 +414,17 @@ public class Detection extends DynamicCommand implements Initializable
 		 */
 		IJ.log( "Downloading/Installing the environement if necessary..." );
 		
+		// Check if cuda or not
+		String os = System.getProperty("os.name").toLowerCase();
+        boolean isGpuPlatform = os.contains("linux") || os.contains("win");
+        String envName = isGpuPlatform ? "cuda" : "default";
+		
 		final Environment env = Appose // the builder
 				.pixi(this.getClass().getResource("pixi.toml")) // we chose pixi as the environment manager
 				.subscribeProgress( this::showProgress ) // report progress visually
 				.subscribeOutput( this::showProgress ) // report output visually
 				.subscribeError( IJ::log ) // log problems
+	            .environment(envName)  // choose env based on OS (to get cuda or not)
 				.build(); // create the environment
 		hideProgress();
 
