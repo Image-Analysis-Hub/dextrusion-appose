@@ -1,4 +1,4 @@
-Run [DeXtrusion](https://github.com/Image-Analysis-Hub/DeXtrusion) in Fiji thanks to Appose
+Run [DeXtrusion](https://github.com/Image-Analysis-Hub/DeXtrusion) in Fiji thanks to [Appose](https://github.com/apposed/)
 
 DeXtrusion is a python module to detect cellular events like cell extrusions in epithelia movies.
 
